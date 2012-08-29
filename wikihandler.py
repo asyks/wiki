@@ -1,6 +1,10 @@
 import webapp2
 import jinja2
 import os 
+import hashlib
+import hmac
+import random
+import string
 
 from google.appengine.ext import db
 
@@ -9,8 +13,26 @@ templates = os.path.join(path, 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(templates), 
                                autoescape = True)
 
+# password hashing stuff
+
+def make_salt():
+  return ''.join(random.choice(string.letters) for x in range(5))
+
+def make_hash(un, pw, salt=None):
+  if salt:
+    salt = make_salt
+  h = hashlib.sha256(un + pw + salt).hexdigest()
+  return '%s|%s' % (h, salt)
+
+def check_hash(un, pw, h):
+  salt = h.split('|')[1]
+  if make_hash(un, pw, salt) == h:
+    return True
+
 def users_key(group='default'):
   return db.Key.from_path('Users', group)
+
+# Users entity 
 
 class Users(db.Model):
 
@@ -70,6 +92,7 @@ class Login(Handler):
   
   def get(self):
     self.render('/login-form.html')
+    # create get secure cookie procedure and set secure cookie procedure
 
 class Logout(Handler):
 
