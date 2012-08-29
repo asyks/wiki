@@ -51,7 +51,7 @@ class Users(db.Model):
 
   @classmethod
   def register(cls, un, pw, email=None):
-  # needs to hash password before adding to Db
+    pw = make_hash(un, pw)
     return cls(parent=users_key(),
                username=un,
                password=pw,
