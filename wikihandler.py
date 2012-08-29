@@ -2,10 +2,46 @@ import webapp2
 import jinja2
 import os 
 
+from google.appengine.ext import db
+
 path = os.path.dirname(__file__)
 templates = os.path.join(path, 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(templates), 
                                autoescape = True)
+
+def users_key(group='default'):
+  return db.Key.from_path('Users', group)
+
+class Users(db.Model):
+
+  username = db.StringProperty(required=True)
+  password = db.StringProperty(required=True)
+  email = db.StringProperty()
+  created = db.DateTimeProperty(auto_now_add=True)
+
+  @classmethod
+  def by_id(cls, user_id):
+    return cls.get_by_id(user_id, parent=users_key(uid))
+
+  @classmethod
+  def by_name(cls, name):
+    return cls.all().filter('username=', name).get()
+
+  @classmethod
+  def register(cls, un, pw, email=None):
+  # needs to hash password before adding to Db
+    return cls(parent=users_key(),
+               username=un,
+               password=pw,
+               email=email)
+
+  @classmethod
+  def login(cls, un, pw):
+    # needs to check password and return username on match
+    u = cls.by_name(name)
+    # if u and valid_pw(...): return u
+    pass
+    
 
 class Handler(webapp2.RequestHandler):
 
@@ -18,6 +54,17 @@ class Handler(webapp2.RequestHandler):
   
   def render(self, template, **kw):
     self.write(self.render_str(template, **kw))
+
+  def initialize(self, *a, **kw):
+    webapp2.RequestHandler.initialize(self, *a, **kw)
+# the following lines are not relevant to this file and have been commented out
+#    uid = self.read_secure_cookie('user_id')
+#    self.user = uid and User.by_id(int(uid))
+
+    if self.request.url.endswith('.json'):
+      self.format = 'json'
+    else:
+      self.format = 'html'
 
 class Login(Handler):
   
