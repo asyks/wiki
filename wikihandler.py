@@ -13,6 +13,18 @@ templates = os.path.join(path, 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(templates), 
                                autoescape = True)
 
+# cookie setting stuff
+
+secret = 'you will never guess me'
+
+def make_secure_val(val):
+  return '%s|%s' % (val, hmac.new(secret, val).hexdigest())
+
+def check_secure_val(cookie):
+  val = cookie.split('|')[0]
+  if make_secure_val(val) == cookie:
+    return val 
+
 # password hashing stuff
 
 def make_salt():
@@ -37,7 +49,7 @@ def users_key(group='default'):
 class Users(db.Model):
 
   username = db.StringProperty(required=True)
-  password = db.StringProperty(required=True)
+  pw_hash = db.StringProperty(required=True)
   email = db.StringProperty()
   created = db.DateTimeProperty(auto_now_add=True)
 
@@ -59,11 +71,9 @@ class Users(db.Model):
 
   @classmethod
   def login(cls, un, pw):
-    # needs to check password and return username on match
-    u = cls.by_name(name)
-    # if u and valid_pw(...): return u
-    pass
-    
+    u = cls.by_name(un)
+    if u and valid_pw(un, pw, u.pw_hash): 
+      return u 
 
 class Handler(webapp2.RequestHandler):
 
@@ -73,15 +83,22 @@ class Handler(webapp2.RequestHandler):
   def render_str(self, template, **b):
     template = jinja_env.get_template(template)
     return template.render(**b)
-  
+ 
   def render(self, template, **kw):
     self.write(self.render_str(template, **kw))
 
+  def set_user_cookie(self, val):
+    cookie_val = make_secure_val(val)
+    self.response.headers.add_header('Set-Cookie', 'user_id=%s; Path=/' % cookie_val)
+ 
+  def check_user_cookie(self):
+    cookie_val = self.request.cookies.get('user_id')
+    return check_secure_val(cookie_val) # originally: cookie_val and... 
+    
   def initialize(self, *a, **kw):
     webapp2.RequestHandler.initialize(self, *a, **kw)
-# the following lines are not relevant to this file and have been commented out
-#    uid = self.read_secure_cookie('user_id')
-#    self.user = uid and User.by_id(int(uid))
+    uid = self.check_user_cookie() 
+    self.user = Users.by_id(int(uid)) # originally: self.user = uid and...  
 
     if self.request.url.endswith('.json'):
       self.format = 'json'
@@ -92,7 +109,7 @@ class Login(Handler):
   
   def get(self):
     self.render('/login-form.html')
-    # create get secure cookie procedure and set secure cookie procedure
+    self.set_user_cookie('test') 
 
 class Logout(Handler):
 
