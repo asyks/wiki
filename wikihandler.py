@@ -6,6 +6,7 @@ import hmac
 import random
 import string
 import re
+import logging
 
 from google.appengine.ext import db
 
@@ -21,11 +22,11 @@ secret = 'you will never guess me'
 def make_secure_val(val):
   return '%s|%s' % (val, hmac.new(secret, val).hexdigest())
 
-def check_secure_val(cookie):
-  if cookie:
-    val = cookie.split('|')[0]
-    if make_secure_val(val) == cookie:
-      return val 
+def check_secure_val(secure_val):
+#  if cookie:
+  val = secure_val.split('|')[0]
+  if secure_val == make_secure_val(val):
+    return val 
 
 # password hashing stuff
 
@@ -33,14 +34,14 @@ def make_salt():
   return ''.join(random.choice(string.letters) for x in range(5))
 
 def make_hash(un, pw, salt=None):
-  if salt:
-    salt = make_salt
+  if not salt:
+    salt = make_salt()
   h = hashlib.sha256(un + pw + salt).hexdigest()
-  return '%s|%s' % (h, salt)
+  return '%s|%s' % (salt, h)
 
 def check_hash(un, pw, h):
-  salt = h.split('|')[1]
-  if make_hash(un, pw, salt) == h:
+  salt = h.split('|')[0]
+  if h == make_hash(un, pw, salt):
     return True
 
 def users_key(group='default'):
@@ -68,7 +69,7 @@ class Users(db.Model):
     pw = make_hash(un, pw)
     return cls(parent=users_key(),
                username=un,
-               password=pw,
+               pw_hash=pw,
                email=email)
 
   @classmethod
@@ -90,16 +91,21 @@ class Handler(webapp2.RequestHandler):
     self.write(self.render_str(template, **kw))
 
   def set_user_cookie(self, val):
+    name = 'user_id'
     cookie_val = make_secure_val(val)
-    self.response.headers.add_header('Set-Cookie', 'user_id=%s; Path=/' % cookie_val)
+    self.response.headers.add_header('Set-Cookie', '%s=%s; Path=/' % (name, cookie_val))
  
-  def check_user_cookie(self):
-    cookie_val = self.request.cookies.get('user_id')
-    return check_secure_val(cookie_val) # originally: cookie_val and... 
+  def read_user_cookie(self):
+    name = 'user_id'
+    cookie_val = self.request.cookies.get(name)
+    return cookie_val and check_secure_val(cookie_val) # originally: cookie_val and... 
+
+  def login(self, user):
+    self.set_user_cookie(str(user.key().id()))
     
   def initialize(self, *a, **kw):
     webapp2.RequestHandler.initialize(self, *a, **kw)
-    uid = self.check_user_cookie() 
+    uid = self.read_user_cookie() 
     self.user = Users.by_name(uid) # originally: self.user = uid and...  
 
     if self.request.url.endswith('.json'):
@@ -149,42 +155,41 @@ class Signup(Handler):
     self.render('/signup-form.html')
 
   def post(self):
-    username = self.request.get('username')
-    password = self.request.get('password')
-    verify = self.request.get('verify')
-    email = self.request.get('email')
-    errors = {}
+    self.username = self.request.get('username')
+    self.password = self.request.get('password')
+    self.verify = self.request.get('verify')
+    self.email = self.request.get('email')
+    have_error = False
 
-    if not user_validate(username):
+    params = dict(username = self.username, email = self.email) 
+ 
+    if not user_validate(self.username):
       have_error = True
-      errors['error_username'] = 'That username is invalid' 
-    else:
-      if Users.by_name(username):
-        have_error = True
-        errors['error_username'] = 'That username is already taken' 
+      params['error_username'] = 'That username is invalid' 
+    elif Users.by_name(self.username):
+      have_error = True
+      params['error_username'] = 'That username is already taken' 
 
-    if not password_validate(password):
+    if not password_validate(self.password):
       have_error=True
-      errors['error_password'] = 'That password is invalid'
-    else:
-      if not password_verify(password, verify):
-        have_error = True
-        errors['error_verify'] = 'Those passwords do not match'
+      params['error_password'] = 'That password is invalid'
+    elif not password_verify(self.password, self.verify):
+      have_error = True
+      params['error_verify'] = 'Those passwords do not match'
 
-    if email:
-      if not email_validate(email):
-        have_error = True
-        errors['error_email'] = 'That is not a valid email'
+    if not email_validate(self.email):
+      have_error = True
+      params['error_email'] = 'That is not a valid email'
 
     if have_error:
-      self.render('/signup-form.html', 
-                  username=username,
-                  email=email
-                  )
+      self.render('/signup-form.html', **params) 
 
     else:
-      self.render('/signup-form.html')
-
+      new_user = Users.register(self.username, self.password, self.email)
+      new_user.put()
+      logging.error('DB put')
+      self.login(new_user)
+      self.redirect('/example')
 
     # validate form inputs
       # if not valid user --> error_user
