@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import random
 import string
+import re
 
 from google.appengine.ext import db
 
@@ -21,9 +22,10 @@ def make_secure_val(val):
   return '%s|%s' % (val, hmac.new(secret, val).hexdigest())
 
 def check_secure_val(cookie):
-  val = cookie.split('|')[0]
-  if make_secure_val(val) == cookie:
-    return val 
+  if cookie:
+    val = cookie.split('|')[0]
+    if make_secure_val(val) == cookie:
+      return val 
 
 # password hashing stuff
 
@@ -98,16 +100,41 @@ class Handler(webapp2.RequestHandler):
   def initialize(self, *a, **kw):
     webapp2.RequestHandler.initialize(self, *a, **kw)
     uid = self.check_user_cookie() 
-    self.user = Users.by_id(int(uid)) # originally: self.user = uid and...  
+    self.user = Users.by_name(uid) # originally: self.user = uid and...  
 
     if self.request.url.endswith('.json'):
       self.format = 'json'
     else:
       self.format = 'html'
 
+# sign-up form validation stuff
+
+USER_RE = re.compile("^[a-zA-Z0-9_-]{3,20}$")
+PASS_RE = re.compile("^.{3,20}$")
+EMAIL_RE = re.compile("^[\S]+@[\S]+\.[\S]+$")
+
+def user_validate(u):
+  if USER_RE.match(u):
+    return True
+
+def password_validate(p):
+  if PASS_RE.match(p):
+    return True
+
+def password_verify(p,v):
+  if p == v:
+    return True
+
+def email_validate(e): 
+  if not e:
+    return True
+  if e and EMAIL_RE.match(e):
+    return True
+
 class Login(Handler):
   
   def get(self):
+
     self.render('/login-form.html')
     self.set_user_cookie('test') 
 
@@ -121,6 +148,50 @@ class Signup(Handler):
   def get(self):
     self.render('/signup-form.html')
 
+  def post(self):
+    username = self.request.get('username')
+    password = self.request.get('password')
+    verify = self.request.get('verify')
+    email = self.request.get('email')
+    errors = {}
+
+    if not user_validate(username):
+      have_error = True
+      errors['error_username'] = 'That username is invalid' 
+    else:
+      if Users.by_name(username):
+        have_error = True
+        errors['error_username'] = 'That username is already taken' 
+
+    if not password_validate(password):
+      have_error=True
+      errors['error_password'] = 'That password is invalid'
+    else:
+      if not password_verify(password, verify):
+        have_error = True
+        errors['error_verify'] = 'Those passwords do not match'
+
+    if email:
+      if not email_validate(email):
+        have_error = True
+        errors['error_email'] = 'That is not a valid email'
+
+    if have_error:
+      self.render('/signup-form.html', 
+                  username=username,
+                  email=email
+                  )
+
+    else:
+      self.render('/signup-form.html')
+
+
+    # validate form inputs
+      # if not valid user --> error_user
+    # lookup user in db
+      # if invalid or username taken then reload with error
+      # if valid and username not taken then: db.put(user), set cookie, and redirect
+ 
 class WikiPage(Handler):
 
   def get(self, page):
