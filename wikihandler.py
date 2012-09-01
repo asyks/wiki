@@ -23,7 +23,6 @@ def make_secure_val(val):
   return '%s|%s' % (val, hmac.new(secret, val).hexdigest())
 
 def check_secure_val(secure_val):
-#  if cookie:
   val = secure_val.split('|')[0]
   if secure_val == make_secure_val(val):
     return val 
@@ -58,10 +57,11 @@ class Users(db.Model):
 
   @classmethod
   def by_id(cls, user_id):
-    return cls.get_by_id(user_id, parent=users_key(uid))
+    return cls.get_by_id(user_id, parent=users_key())
 
   @classmethod
   def by_name(cls, name):
+    logging.error('Users by_name')
     return cls.all().filter('username=', name).get()
 
   @classmethod
@@ -74,8 +74,10 @@ class Users(db.Model):
 
   @classmethod
   def login(cls, un, pw):
-    u = cls.by_name(un)
-    if u and valid_pw(un, pw, u.pw_hash): 
+   logging.error('login attempt')
+   u = cls.by_name(un)
+   if u and check_hash(un, pw, u.pw_hash): 
+      logging.error('success login')
       return u 
 
 class Handler(webapp2.RequestHandler):
@@ -98,15 +100,18 @@ class Handler(webapp2.RequestHandler):
   def read_user_cookie(self):
     name = 'user_id'
     cookie_val = self.request.cookies.get(name)
-    return cookie_val and check_secure_val(cookie_val) # originally: cookie_val and... 
+    return cookie_val and check_secure_val(cookie_val) # return a and b: if a then return b 
 
-  def login(self, user):
+  def login(self, user): # sets the user_id cookie by calling set_user_cookie()
     self.set_user_cookie(str(user.key().id()))
+
+  def logout(self):
+    self.response.delete_cookie('user_id')
     
   def initialize(self, *a, **kw):
     webapp2.RequestHandler.initialize(self, *a, **kw)
-    uid = self.read_user_cookie() 
-    self.user = Users.by_name(uid) # originally: self.user = uid and...  
+    user_id = self.read_user_cookie() 
+    self.user = user_id and Users.by_id(int(user_id)) # return a and b: if a then return b  
 
     if self.request.url.endswith('.json'):
       self.format = 'json'
@@ -142,12 +147,27 @@ class Login(Handler):
   def get(self):
 
     self.render('/login-form.html')
-    self.set_user_cookie('test') 
+ 
+  def post(self):
+
+    username = self.request.get('username')
+    password = self.request.get('password')
+
+    user = Users.login(username, password)
+
+    if user:
+      self.login(user) 
+      self.redirect('/')
+
+    else:
+      self.render('/login-form.html', error='invalid username or password')
 
 class Logout(Handler):
 
   def get(self):
-    self.write('Logout Handler')
+
+    self.logout()
+    self.redirect('/')
 
 class Signup(Handler):
 
