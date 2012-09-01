@@ -57,28 +57,29 @@ class Users(db.Model):
 
   @classmethod
   def by_id(cls, user_id):
-    return cls.get_by_id(user_id, parent=users_key())
+    return cls.get_by_id(user_id, parent = users_key())
 
   @classmethod
   def by_name(cls, name):
-    logging.error('Users by_name')
-    return cls.all().filter('username=', name).get()
+    user = cls.all().filter('username=', name).get()
+    logging.error('Users by_name: %s' % user)
+    return user
 
   @classmethod
   def register(cls, un, pw, email=None):
-    pw = make_hash(un, pw)
-    return cls(parent=users_key(),
-               username=un,
-               pw_hash=pw,
-               email=email)
+    pw_hash = make_hash(un, pw)
+    return cls(parent = users_key(),
+               username = un,
+               pw_hash = pw_hash,
+               email = email)
 
   @classmethod
   def login(cls, un, pw):
-   logging.error('login attempt')
-   u = cls.by_name(un)
-   if u and check_hash(un, pw, u.pw_hash): 
+    user = cls.by_name(un)
+    logging.error('login attempt: %s' % user)
+    if user and check_hash(un, pw, user.pw_hash): 
       logging.error('success login')
-      return u 
+      return user 
 
 class Handler(webapp2.RequestHandler):
 
@@ -146,7 +147,7 @@ class Login(Handler):
   
   def get(self):
 
-    self.render('/login-form.html')
+    self.render('login-form.html')
  
   def post(self):
 
@@ -160,7 +161,7 @@ class Login(Handler):
       self.redirect('/')
 
     else:
-      self.render('/login-form.html', error='invalid username or password')
+      self.render('login-form.html', error='invalid username or password')
 
 class Logout(Handler):
 
@@ -211,12 +212,6 @@ class Signup(Handler):
       self.login(new_user)
       self.redirect('/example')
 
-    # validate form inputs
-      # if not valid user --> error_user
-    # lookup user in db
-      # if invalid or username taken then reload with error
-      # if valid and username not taken then: db.put(user), set cookie, and redirect
- 
 class WikiPage(Handler):
 
   def get(self, page):
