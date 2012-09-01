@@ -57,38 +57,32 @@ class Users(db.Model):
 
   @classmethod
   def by_id(cls, user_id):
-    return cls.get_by_id(user_id, parent = users_key())
+    return cls.get_by_id(user_id, parent=users_key())
 
   @classmethod
   def by_name(cls, name):
-<<<<<<< HEAD
     u = cls.all()
     u = u.filter('username =', name).get()
     logging.error(repr(u.username))
     return u
 #    logging.error('Users by_name')
 #    return cls.all().filter('username=', name).get()
-=======
-    user = cls.all().filter('username=', name).get()
-    logging.error('Users by_name: %s' % user)
-    return user
->>>>>>> f430b206c6727df7dc36ddf480e34f59a717824c
 
   @classmethod
   def register(cls, un, pw, email=None):
-    pw_hash = make_hash(un, pw)
-    return cls(parent = users_key(),
-               username = un,
-               pw_hash = pw_hash,
-               email = email)
+    pw = make_hash(un, pw)
+    return cls(parent=users_key(),
+               username=un,
+               pw_hash=pw,
+               email=email)
 
   @classmethod
   def login(cls, un, pw):
-    user = cls.by_name(un)
-    logging.error('login attempt: %s' % user)
-    if user and check_hash(un, pw, user.pw_hash): 
+   logging.error('login attempt')
+   u = cls.by_name(un)
+   if u and check_hash(un, pw, u.pw_hash): 
       logging.error('success login')
-      return user 
+      return u 
 
 class Handler(webapp2.RequestHandler):
 
@@ -156,12 +150,8 @@ class Login(Handler):
   
   def get(self):
 
-<<<<<<< HEAD
     self.render('/login-form.html')
     referer = self.request.headers.get('referer','/')# temporary solution, eventually will need cookie set 
-=======
-    self.render('login-form.html')
->>>>>>> f430b206c6727df7dc36ddf480e34f59a717824c
  
   def post(self):
 
@@ -175,7 +165,7 @@ class Login(Handler):
       self.redirect('referer')
 
     else:
-      self.render('login-form.html', error='invalid username or password')
+      self.render('/login-form.html', error='invalid username or password')
 
 class Logout(Handler):
 
@@ -227,7 +217,6 @@ class Signup(Handler):
       self.login(new_user)
       self.redirect('/example')
 
-<<<<<<< HEAD
     # validate form inputs
       # if not valid user --> error_user
     # lookup user in db
@@ -252,8 +241,6 @@ class Wiki(db.Model):
                 content = '')
     return entry
 
-=======
->>>>>>> f430b206c6727df7dc36ddf480e34f59a717824c
 class WikiPage(Handler):
 
   def get(self, page):
