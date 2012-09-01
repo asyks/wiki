@@ -61,8 +61,12 @@ class Users(db.Model):
 
   @classmethod
   def by_name(cls, name):
-    logging.error('Users by_name')
-    return cls.all().filter('username=', name).get()
+    u = cls.all()
+    u = u.filter('username =', name).get()
+    logging.error(repr(u.username))
+    return u
+#    logging.error('Users by_name')
+#    return cls.all().filter('username=', name).get()
 
   @classmethod
   def register(cls, un, pw, email=None):
@@ -147,6 +151,7 @@ class Login(Handler):
   def get(self):
 
     self.render('/login-form.html')
+    referer = self.request.headers.get('referer','/')# temporary solution, eventually will need cookie set 
  
   def post(self):
 
@@ -157,7 +162,7 @@ class Login(Handler):
 
     if user:
       self.login(user) 
-      self.redirect('/')
+      self.redirect('referer')
 
     else:
       self.render('/login-form.html', error='invalid username or password')
@@ -167,7 +172,8 @@ class Logout(Handler):
   def get(self):
 
     self.logout()
-    self.redirect('/')
+    referer = self.request.headers.get('referer','/')# temporary solution, eventually will need cookie set  
+    self.redirect(referer)
 
 class Signup(Handler):
 
@@ -217,16 +223,43 @@ class Signup(Handler):
       # if invalid or username taken then reload with error
       # if valid and username not taken then: db.put(user), set cookie, and redirect
  
+class Wiki(db.Model):
+
+  title = db.StringProperty(required = True)
+  content = db.TextProperty()
+  created = db.DateTimeProperty(auto_now_add = True)
+  last_modified = db.DateTimeProperty(auto_now = True)
+
+  @classmethod
+  def by_title(cls, title):
+    wiki = cls.all().filter('title =', title).get()
+    return wiki
+
+  @classmethod
+  def make_entry(cls, title):
+    entry = cls(title = title,
+                content = '')
+    return entry
+
 class WikiPage(Handler):
 
   def get(self, page):
-    self.write('a wiki page for topic: %s' % page)
 
+    wiki = Wiki.by_title(page)
+    if wiki:
+      self.write('the existing wiki page for topic: %s' % page)
+    else:
+      new_entry = Wiki.make_entry(page)
+      db.put(new_entry)
+      self.write('a newly created wiki page for topic: %s' % page)
+    
 class EditPage(Handler):
  
   def get(self, page):
-    self.write('a wiki edit page for topic: %s' % page)
-
+    if self.user:
+      self.write('a wiki edit page for topic: %s' % page)
+    else:
+      self.redirect(page)
 
 PAGE_RE = r'(/(?:[a-zA-Z0-9_-]+/?)*)'
 
