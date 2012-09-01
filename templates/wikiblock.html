@@ -2,11 +2,11 @@
 
 {% block content %}
 
-	{% for p in posts %}
-		{{ p.render() | safe }}
-		<br><br>
-	{% endfor %}
-
-	<div>{{ queried }}</div>
+  {{ edit | safe }}|{{ history | safe }} {{ auth | safe }}
+   
+    <br>
+		{{ wiki_title }}
+		<br>
+    {{ wiki_content | safe }}
 
 {% endblock %}

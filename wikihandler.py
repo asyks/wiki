@@ -63,10 +63,8 @@ class Users(db.Model):
   def by_name(cls, name):
     u = cls.all()
     u = u.filter('username =', name).get()
-    logging.error(repr(u.username))
     return u
-#    logging.error('Users by_name')
-#    return cls.all().filter('username=', name).get()
+#   return cls.all().filter('username=', name).get()
 
   @classmethod
   def register(cls, un, pw, email=None):
@@ -146,12 +144,13 @@ def email_validate(e):
   if e and EMAIL_RE.match(e):
     return True
 
+last_page = '/'
+
 class Login(Handler):
   
   def get(self):
 
     self.render('/login-form.html')
-    referer = self.request.headers.get('referer','/')# temporary solution, eventually will need cookie set 
  
   def post(self):
 
@@ -162,7 +161,7 @@ class Login(Handler):
 
     if user:
       self.login(user) 
-      self.redirect('referer')
+      self.redirect(last_page)
 
     else:
       self.render('/login-form.html', error='invalid username or password')
@@ -172,8 +171,7 @@ class Logout(Handler):
   def get(self):
 
     self.logout()
-    referer = self.request.headers.get('referer','/')# temporary solution, eventually will need cookie set  
-    self.redirect(referer)
+    self.redirect(last_page)
 
 class Signup(Handler):
 
@@ -215,14 +213,8 @@ class Signup(Handler):
       new_user.put()
       logging.error('DB put')
       self.login(new_user)
-      self.redirect('/example')
+      self.redirect(last_page)
 
-    # validate form inputs
-      # if not valid user --> error_user
-    # lookup user in db
-      # if invalid or username taken then reload with error
-      # if valid and username not taken then: db.put(user), set cookie, and redirect
- 
 class Wiki(db.Model):
 
   title = db.StringProperty(required = True)
@@ -245,21 +237,65 @@ class WikiPage(Handler):
 
   def get(self, page):
 
-    wiki = Wiki.by_title(page)
-    if wiki:
-      self.write('the existing wiki page for topic: %s' % page)
+    global last_page
+    last_page = page
+    logging.error(last_page)
+
+    user = self.user
+
+    if user:
+      params = dict(edit = '<a href="/_edit%s">edit</a>' % page,
+                    history = '<a href ="%s">history</a>' % page,
+                    auth = user.username + '(<a href="/logout">logout</a>)') 
+
     else:
-      new_entry = Wiki.make_entry(page)
-      db.put(new_entry)
-      self.write('a newly created wiki page for topic: %s' % page)
+      params = dict(history = '<a href ="%s">history</a>' % page,
+                    auth = '<a href="/login">login</a>|<a href="/signup">signup</a>')
+
+    wiki = Wiki.by_title(page)
+
+    if wiki:
+      params['wiki_title'] = wiki.title
+      params['wiki_content'] = wiki.content
+      logging.error(params)
+      self.render('wikiblock.html', **params)
+
+    else:
+      self.redirect('/_edit' + page) 
     
 class EditPage(Handler):
  
   def get(self, page):
-    if self.user:
-      self.write('a wiki edit page for topic: %s' % page)
+ 
+    global last_page
+    last_page = '/_edit' + page
+
+    params = {}
+
+    user = self.user
+
+    if user:
+      params['edit'] = '<a href="/_edit%s">edit</a>' % page,
+      params['history'] = '<a href ="%s">history</a>' % page,
+      params['auth'] = user.username + '(<a href="/logout">logout</a>)' 
     else:
-      self.redirect(page)
+      self.redirect(page) 
+
+    wiki = Wiki.by_title(page)
+
+    if not wiki: 
+      new_entry = Wiki.make_entry(page)
+      db.put(new_entry)
+      params['wiki_title'] = new_entry.title
+      params[' content'] = new_entry.content
+
+    else:
+      params['wiki_title'] = wiki.title 
+      params['wiki_content'] = wiki.content
+
+    self.render('wikiblock.html', **params)
+ 
+# Handler Object 
 
 PAGE_RE = r'(/(?:[a-zA-Z0-9_-]+/?)*)'
 
