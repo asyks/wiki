@@ -9,6 +9,7 @@ import re
 import logging
 
 from google.appengine.ext import db
+from datetime import datetime
 
 path = os.path.dirname(__file__)
 templates = os.path.join(path, 'templates')
@@ -234,6 +235,18 @@ class Wiki(db.Model):
                 content = 'initial content of post')
     return entry
 
+  @classmethod
+  def as_dict(cls):
+    time_format = '%a %b %y %H:%M:%S %Y' 
+    d = {}
+    d['wiki_title'] = cls.title
+    d['wiki_content'] = cls.content
+    d['wiki_created'] = cls.created.strftime(time_format)
+    d['wiki_edited'] = cls.last_modified.strftime(time_format)
+    
+def make_last_edit_str(time):
+  return 'This page was last edited on: %s' % time
+  
 class WikiPage(Handler):
 
   def get(self, page):
@@ -252,6 +265,11 @@ class WikiPage(Handler):
     elif wiki:
       params['wiki_title'] = wiki.title
       params['wiki_content'] = wiki.content
+      time_format = '%a %b %y %H:%M:%S %Y' 
+      last_mod = wiki.last_modified.strftime(time_format)
+      last_mod = make_last_edit_str(last_mod)
+      params['wiki_edited'] = last_mod
+      logging.error(params['wiki_edited'])
       if not user:
         params['history'] = '<a href="%s"> history </a>' % page
         params['auth'] = '<a href="/login"> login </a>|<a href="/signup"> signup </a>'
@@ -261,7 +279,7 @@ class WikiPage(Handler):
         params['auth'] = user.username + '(<a href="/logout">logout</a>)' 
  
     last_page = page
-    self.render('wikiblock.html', **params)
+    self.render('wiki-view.html', **params)
      
 class EditPage(Handler):
  
@@ -280,6 +298,7 @@ class EditPage(Handler):
         db.put(new_entry)
         params['wiki_title'] = new_entry.title
         params['wiki_content'] = new_entry.content
+        params['wiki_edited'] = new_entry.last_modified
         params['edit'] = '<a href="/_edit%s">edit</a>' % page,
         params['history'] = '<a href ="%s">history</a>' % page,
         params['auth'] = user.username + '(<a href="/logout">logout</a>)' 
@@ -296,7 +315,15 @@ class EditPage(Handler):
         params['auth'] = user.username + '(<a href="/logout">logout</a>)' 
 
     last_page = '/_edit' + page
-    self.render('wikiblock.html', **params)
+    self.render('wiki-edit.html', **params)
+
+  def post(self, page):
+
+    new_content = self.request.get('wiki-content')
+    wiki = Wiki.by_title(page)
+    wiki.content = new_content
+    wiki.put()
+    self.redirect(page)
 
 class Front(Handler):
   
@@ -305,7 +332,7 @@ class Front(Handler):
     last_page = '/'
     self.write('Mickipebia Front page')
  
-# Handler Object 
+# Routing Table 
 
 PAGE_RE = r'(/(?:[a-zA-Z0-9_-]+/?)*)'
 

@@ -28,14 +28,14 @@ label + label {
 }
 
 input[type=text] {
-    width: 500px;
+    width: 200px;
     font-size: 20px;
     padding: 2px;
     font-family: monospace;
 }
 
-textarea {
-  width: 500px;
+textarea[name=wiki-content] {
+  width: 600px;
   height: 400px;
   font-size: 17px;
   font-family: monospace;
@@ -64,7 +64,7 @@ input[type=submit] {
     border-bottom: 3px solid #666;
 }
 
-.post-title {
+.wiki-title {
     font-size: 24px;
     font-weight: bold;
 }
@@ -77,7 +77,7 @@ input[type=submit] {
 
 }
 
-.post-content {
+.wiki-content {
     margin-top: 5px;
 		white-space: normal;
 }
