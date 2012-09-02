@@ -1,4 +1,4 @@
-application: wiki
+application: Mickipebia 
 version: 1
 runtime: python27
 api_version: 1
@@ -12,7 +12,6 @@ handlers:
 - url: /.*
   script: wikihandler.app
  
-
 libraries:
 - name: jinja2
   version: latest
