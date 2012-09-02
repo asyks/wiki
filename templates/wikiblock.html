@@ -2,11 +2,15 @@
 
 {% block content %}
 
-  {{ edit | safe }}|{{ history | safe }} {{ auth | safe }}
+  <div class="wiki-header">
+		{{ edit | safe }}|
+		{{ history | safe }}
+		{{ auth | safe }}
+	</div>
    
     <br>
-		{{ wiki_title }}
+		<div id="wiki_title">{{ wiki_title }}</div>
 		<br>
-    {{ wiki_content | safe }}
+		<div id="wiki_content">{{ wiki_content | safe }}</div>
 
 {% endblock %}

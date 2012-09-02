@@ -2,38 +2,47 @@
 
 <html>
 
-	<head>
-		<title>Login</title>
-		<style type="text/css">
-		.label {text-align: right}
-		.error {color: red}
-		</style>
-	</head>
+<head>
 
-	<body>
+	<title>Mickipebia|Login</title>
 
-		<h2>Login</h2>
+  <link rel="stylesheet" type="text/css" href="/static/mainstyle.css">
 
-		<form method='post'>
-			<table>
+	<style type="text/css">
+	.label {text-align: right}
+	.error {color: red}
+	</style>
 
-				<tr>
-					<td class="label">Username:</td>
-					<td><input type='text' name='username' value='{{username}}'></td>
-				</tr>
+</head>
 
-				<tr>
-					<td class="label">Password:</td>
-					<td><input type='text' name='password' value='{{password}}'></td>
-  			</tr>
-   
-				<tr><td class='error'>{{error}}</td></tr>
+<body>
 
-			</table>
+	<a href="/" class="main-title">Mickipebia</a>
 
-				<input type="submit">
-		</form>
+	<h2>Login</h2>
 
-	</body>
+	<form method='post'>
+
+		<table>
+			<tr>
+				<td class="label">Username:</td>
+				<td><input type='text' name='username' value='{{username}}'></td>
+			</tr>
+
+			<tr>
+				<td class="label">Password:</td>
+				<td><input type='text' name='password' value='{{password}}'></td>
+			</tr>
+ 
+			<tr><td class='error'>{{error}}</td></tr>
+		</table>
+
+			<input type="submit">
+
+	</form>
+	<br>
+	<a href="/signup">Signup to create an account</a>
+
+</body>
 
 </html>

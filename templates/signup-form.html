@@ -2,48 +2,58 @@
 
 <html>
 
-	<head>
-		<title>Signup</title>
-		<style type="text/css">
-		.label {text-align: right}
-		.error {color: red}
-		</style>
-	</head>
+<head>
 
-	<body>
+	<title>Mickipebia|create a new account</title>
 
-		<h2>Signup</h2>
+	<link rel="stylesheet" type="text/css" href="/static/mainstyle.css" />
 
-		<form method='post'>
-			<table>
-				<tr>
-					<td class="label">Username:</td>
-					<td><input type='text' name='username' value='{{username}}'></td>
-					<td class='error'>{{error_username}}</td>
-				</tr>
+	<style type="text/css">
+	.label {text-align: right}
+	.error {color: red}
+	</style>
 
-				<tr>
-					<td class="label">Password:</td>
-					<td><input type='text' name='password' value='{{password}}'></td>
-					<td class='error'>{{error_password}}</td>
-				</tr>
+</head>
 
-				<tr>
-					<td class="label">Verify Password:</td>
-					<td><input type='text' name='verify' value='{{verify}}'></td>
-					<td class='error'>{{error_verify}}</td>
-				</tr>
+<body>
 
-				<tr>
-					<td class="label">Email (optional):</td>
-					<td><input type='text' name='email' value='{{email}}'></td>
-					<td class='error'>{{error_email}}</td>
-				</tr>
-			</table>
+	<a href="/" class="main-title">Mickipebia</a>
 
-				<input type="submit">
-		</form>
+	<h2>Create a new account:</h2>
 
-	</body>
+	<form method='post'>
+		<table>
+			<tr>
+				<td class="label">Username:</td>
+				<td><input type='text' name='username' value='{{username}}'></td>
+				<td class='error'>{{error_username}}</td>
+			</tr>
+
+			<tr>
+				<td class="label">Password:</td>
+				<td><input type='text' name='password' value='{{password}}'></td>
+				<td class='error'>{{error_password}}</td>
+			</tr>
+
+			<tr>
+				<td class="label">Verify Password:</td>
+				<td><input type='text' name='verify' value='{{verify}}'></td>
+				<td class='error'>{{error_verify}}</td>
+			</tr>
+
+			<tr>
+				<td class="label">Email (optional):</td>
+				<td><input type='text' name='email' value='{{email}}'></td>
+				<td class='error'>{{error_email}}</td>
+			</tr>
+		</table>
+
+			<input type="submit">
+
+	</form>
+  <br>
+	<a href="/login">Login Here, if you already have an account</a>
+
+</body>
 
 </html>

@@ -179,6 +179,7 @@ class Signup(Handler):
     self.render('/signup-form.html')
 
   def post(self):
+
     self.username = self.request.get('username')
     self.password = self.request.get('password')
     self.verify = self.request.get('verify')
@@ -230,7 +231,7 @@ class Wiki(db.Model):
   @classmethod
   def make_entry(cls, title):
     entry = cls(title = title,
-                content = '')
+                content = 'initial content of post')
     return entry
 
 class WikiPage(Handler):
@@ -238,68 +239,78 @@ class WikiPage(Handler):
   def get(self, page):
 
     global last_page
-    last_page = page
-    logging.error(last_page)
-
+    params = {}
     user = self.user
-
-    if user:
-      params = dict(edit = '<a href="/_edit%s">edit</a>' % page,
-                    history = '<a href ="%s">history</a>' % page,
-                    auth = user.username + '(<a href="/logout">logout</a>)') 
-
-    else:
-      params = dict(history = '<a href ="%s">history</a>' % page,
-                    auth = '<a href="/login">login</a>|<a href="/signup">signup</a>')
-
     wiki = Wiki.by_title(page)
 
-    if wiki:
+    if not wiki:
+      if not user:
+        self.redirect(last_page)
+      elif user:
+        self.redirect('/_edit' + page) 
+
+    elif wiki:
       params['wiki_title'] = wiki.title
       params['wiki_content'] = wiki.content
-      logging.error(params)
-      self.render('wikiblock.html', **params)
-
-    else:
-      self.redirect('/_edit' + page) 
-    
+      if not user:
+        params['history'] = '<a href="%s"> history </a>' % page
+        params['auth'] = '<a href="/login"> login </a>|<a href="/signup"> signup </a>'
+      elif user:
+        params['edit'] = '<a href="/_edit%s">edit</a>' % page
+        params ['history'] = '<a href="%s">history</a>' % page
+        params['auth'] = user.username + '(<a href="/logout">logout</a>)' 
+ 
+    last_page = page
+    self.render('wikiblock.html', **params)
+     
 class EditPage(Handler):
  
   def get(self, page):
  
     global last_page
-    last_page = '/_edit' + page
-
     params = {}
-
     user = self.user
-
-    if user:
-      params['edit'] = '<a href="/_edit%s">edit</a>' % page,
-      params['history'] = '<a href ="%s">history</a>' % page,
-      params['auth'] = user.username + '(<a href="/logout">logout</a>)' 
-    else:
-      self.redirect(page) 
-
     wiki = Wiki.by_title(page)
 
     if not wiki: 
-      new_entry = Wiki.make_entry(page)
-      db.put(new_entry)
-      params['wiki_title'] = new_entry.title
-      params[' content'] = new_entry.content
+      if not user:
+        self.redirect(last_page)
+      elif user:
+        new_entry = Wiki.make_entry(page)
+        db.put(new_entry)
+        params['wiki_title'] = new_entry.title
+        params['wiki_content'] = new_entry.content
+        params['edit'] = '<a href="/_edit%s">edit</a>' % page,
+        params['history'] = '<a href ="%s">history</a>' % page,
+        params['auth'] = user.username + '(<a href="/logout">logout</a>)' 
 
-    else:
-      params['wiki_title'] = wiki.title 
-      params['wiki_content'] = wiki.content
+    elif wiki:
+      if not user:
+        logging.error('non logged-in redirect')
+        self.redirect(page) 
+      elif user:
+        params['wiki_title'] = wiki.title 
+        params['wiki_content'] = wiki.content
+        params['edit'] = '<a href="/_edit%s">edit</a>' % page,
+        params['history'] = '<a href ="%s">history</a>' % page,
+        params['auth'] = user.username + '(<a href="/logout">logout</a>)' 
 
+    last_page = '/_edit' + page
     self.render('wikiblock.html', **params)
+
+class Front(Handler):
+  
+  def get(self):
+    global last_page
+    last_page = '/'
+    self.write('Mickipebia Front page')
  
 # Handler Object 
 
 PAGE_RE = r'(/(?:[a-zA-Z0-9_-]+/?)*)'
 
-app = webapp2.WSGIApplication([(r'/login/?', Login),
+app = webapp2.WSGIApplication([('/?', Front),
+                               (r'/login/?', Login),
                                (r'/logout/?', Logout),
                                (r'/signup/?', Signup),
                                (r'/_edit' + PAGE_RE, EditPage),
