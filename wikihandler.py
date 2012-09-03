@@ -230,9 +230,9 @@ class Wiki(db.Model):
     return wiki
 
   @classmethod
-  def make_entry(cls, title):
+  def make_entry(cls, title, content=''):
     entry = cls(title = title,
-                content = 'initial content of post')
+                content = content)
     return entry
 
   @classmethod
@@ -269,7 +269,6 @@ class WikiPage(Handler):
       last_mod = wiki.last_modified.strftime(time_format)
       last_mod = make_last_edit_str(last_mod)
       params['wiki_edited'] = last_mod
-      logging.error(params['wiki_edited'])
       if not user:
         params['history'] = '<a href="%s"> history </a>' % page
         params['auth'] = '<a href="/login"> login </a>|<a href="/signup"> signup </a>'
@@ -299,19 +298,18 @@ class EditPage(Handler):
         params['wiki_title'] = new_entry.title
         params['wiki_content'] = new_entry.content
         params['wiki_edited'] = new_entry.last_modified
-        params['edit'] = '<a href="/_edit%s">edit</a>' % page,
-        params['history'] = '<a href ="%s">history</a>' % page,
+        params['edit'] = '<a href="/_edit%s">edit</a>' % page
+        params['history'] = '<a href ="%s">history</a>' % page
         params['auth'] = user.username + '(<a href="/logout">logout</a>)' 
 
     elif wiki:
       if not user:
-        logging.error('non logged-in redirect')
         self.redirect(page) 
       elif user:
         params['wiki_title'] = wiki.title 
         params['wiki_content'] = wiki.content
-        params['edit'] = '<a href="/_edit%s">edit</a>' % page,
-        params['history'] = '<a href ="%s">history</a>' % page,
+        params['edit'] = '<a href="/_edit%s">edit</a>' % page
+        params['history'] = '<a href ="%s">history</a>' % page
         params['auth'] = user.username + '(<a href="/logout">logout</a>)' 
 
     last_page = '/_edit' + page
