@@ -34,7 +34,7 @@ input[type=text] {
     font-family: monospace;
 }
 
-textarea[name=wiki-content] {
+textarea[name=content] {
   width: 600px;
   height: 400px;
   font-size: 17px;

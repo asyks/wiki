@@ -65,7 +65,6 @@ class Users(db.Model):
     u = cls.all()
     u = u.filter('username =', name).get()
     return u
-#   return cls.all().filter('username=', name).get()
 
   @classmethod
   def register(cls, un, pw, email=None):
@@ -213,14 +212,13 @@ class Signup(Handler):
     else:
       new_user = Users.register(self.username, self.password, self.email)
       new_user.put()
-      logging.error('DB put')
       self.login(new_user)
       self.redirect(last_page)
 
 class Wiki(db.Model):
 
   title = db.StringProperty(required = True)
-  content = db.TextProperty()
+  content = db.TextProperty(required = True)
   created = db.DateTimeProperty(auto_now_add = True)
   last_modified = db.DateTimeProperty(auto_now = True)
 
@@ -230,7 +228,7 @@ class Wiki(db.Model):
     return wiki
 
   @classmethod
-  def make_entry(cls, title, content=''):
+  def make_entry(cls, title, content='initial content of article'):
     entry = cls(title = title,
                 content = content)
     return entry
@@ -254,21 +252,23 @@ class WikiPage(Handler):
     global last_page
     params = {}
     user = self.user
-    wiki = Wiki.by_title(page)
+    wiki = Wiki.by_title(str(page))
 
     if not wiki:
       if not user:
         self.redirect(last_page)
       elif user:
+        new_entry = Wiki.make_entry(page)
+        new_entry.put()
         self.redirect('/_edit' + page) 
 
     elif wiki:
-      params['wiki_title'] = wiki.title
-      params['wiki_content'] = wiki.content
+      params['title'] = wiki.title
+      params['content'] = wiki.content
       time_format = '%a %b %y %H:%M:%S %Y' 
       last_mod = wiki.last_modified.strftime(time_format)
       last_mod = make_last_edit_str(last_mod)
-      params['wiki_edited'] = last_mod
+      params['edited'] = last_mod
       if not user:
         params['history'] = '<a href="%s"> history </a>' % page
         params['auth'] = '<a href="/login"> login </a>|<a href="/signup"> signup </a>'
@@ -287,58 +287,61 @@ class EditPage(Handler):
     global last_page
     params = {}
     user = self.user
-    wiki = Wiki.by_title(page)
+    wiki = Wiki.by_title(str(page))
 
-    if not wiki: 
-      if not user:
-        self.redirect(last_page)
-      elif user:
-        new_entry = Wiki.make_entry(page)
-        db.put(new_entry)
-        params['wiki_title'] = new_entry.title
-        params['wiki_content'] = new_entry.content
-        params['wiki_edited'] = new_entry.last_modified
-        params['edit'] = '<a href="/_edit%s">edit</a>' % page
-        params['history'] = '<a href ="%s">history</a>' % page
-        params['auth'] = user.username + '(<a href="/logout">logout</a>)' 
-
-    elif wiki:
-      if not user:
-        self.redirect(page) 
-      elif user:
-        params['wiki_title'] = wiki.title 
-        params['wiki_content'] = wiki.content
-        params['edit'] = '<a href="/_edit%s">edit</a>' % page
-        params['history'] = '<a href ="%s">history</a>' % page
-        params['auth'] = user.username + '(<a href="/logout">logout</a>)' 
+    if not user:
+      self.redirect(last_page)
+    elif user:
+      params['title'] = wiki.title
+      params['content'] = wiki.content
+      params['edited'] = wiki.last_modified
+      params['edit'] = '<a href="/_edit%s">edit</a>' % page
+      params['history'] = '<a href ="%s">history</a>' % page
+      params['auth'] = user.username + '(<a href="/logout">logout</a>)' 
 
     last_page = '/_edit' + page
     self.render('wiki-edit.html', **params)
 
   def post(self, page):
 
-    new_content = self.request.get('wiki-content')
-    wiki = Wiki.by_title(page)
-    wiki.content = new_content
-    wiki.put()
-    self.redirect(page)
+    user = self.user
+
+    if user:
+      new_content = self.request.get('content')
+      wiki = Wiki.by_title(page)
+      wiki.content = new_content
+      wiki.put()
+      self.redirect(page)
+
+    else:
+      redirect(last_page)
 
 class Front(Handler):
   
   def get(self):
+
     global last_page
+
+    user = self.user
+    params = {}
+
+    if not user:
+      params['auth'] = '<a href="/login"> login </a>|<a href="/signup"> signup </a>'
+    elif user:
+      params['auth'] = user.username + '(<a href="/logout">logout</a>)' 
+ 
     last_page = '/'
-    self.write('Mickipebia Front page')
+    self.render('wiki-front.html', **params)
  
 # Routing Table 
 
 PAGE_RE = r'(/(?:[a-zA-Z0-9_-]+/?)*)'
 
 app = webapp2.WSGIApplication([('/?', Front),
-                               (r'/login/?', Login),
-                               (r'/logout/?', Logout),
-                               (r'/signup/?', Signup),
-                               (r'/_edit' + PAGE_RE, EditPage),
+                               ('/login', Login),
+                               ('/logout', Logout),
+                               ('/signup', Signup),
+                               ('/_edit' + PAGE_RE, EditPage),
                                (PAGE_RE, WikiPage)
                                ],
                                 debug=True)

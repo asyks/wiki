@@ -9,22 +9,18 @@
 	</div>
     <br>
 
-		<div id="wiki-title">{{ wiki_title }}</div>
+		<div id="title">{{ title }}</div>
 		<br>
 
-		<form name="wiki-edit" method="post">
+		<form id="wiki-edit" method="post">
 
-			<table>
-        <tr>
-					<td><textarea name="wiki-content">{{ wiki_content | safe }}</textarea></td>
-				</tr>
-			</table>
-			
+			<textarea name="content">{{content|safe}}</textarea>
+  
 			<input type="submit">
 
 		</form>
 
     <br>
-    <div id="wiki-edited">{{ wiki_edited }}</div>
+    <div id="edited">{{ edited }}</div>
 
 {% endblock %}
