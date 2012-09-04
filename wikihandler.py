@@ -252,7 +252,7 @@ class WikiPage(Handler):
     global last_page
     params = {}
     user = self.user
-    wiki = Wiki.by_title(str(page))
+    wiki = Wiki.by_title(page)
 
     if not wiki:
       if not user:
