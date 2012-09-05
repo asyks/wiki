@@ -16,37 +16,6 @@ templates = os.path.join(path, 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(templates), 
                                autoescape = True)
 
-# cookie setting stuff
-
-secret = 'you will never guess me'
-
-def make_secure_val(val):
-  return '%s|%s' % (val, hmac.new(secret, val).hexdigest())
-
-def check_secure_val(secure_val):
-  val = secure_val.split('|')[0]
-  if secure_val == make_secure_val(val):
-    return val 
-
-# password hashing stuff
-
-def make_salt():
-  return ''.join(random.choice(string.letters) for x in range(5))
-
-def make_hash(un, pw, salt=None):
-  if not salt:
-    salt = make_salt()
-  h = hashlib.sha256(un + pw + salt).hexdigest()
-  return '%s|%s' % (salt, h)
-
-def check_hash(un, pw, h):
-  salt = h.split('|')[0]
-  if h == make_hash(un, pw, salt):
-    return True
-
-def users_key(group='default'):
-  return db.Key.from_path('Users', group)
-
 # Users entity 
 
 class Users(db.Model):
@@ -119,30 +88,6 @@ class Handler(webapp2.RequestHandler):
       self.format = 'json'
     else:
       self.format = 'html'
-
-# sign-up form validation stuff
-
-USER_RE = re.compile("^[a-zA-Z0-9_-]{3,20}$")
-PASS_RE = re.compile("^.{3,20}$")
-EMAIL_RE = re.compile("^[\S]+@[\S]+\.[\S]+$")
-
-def user_validate(u):
-  if USER_RE.match(u):
-    return True
-
-def password_validate(p):
-  if PASS_RE.match(p):
-    return True
-
-def password_verify(p,v):
-  if p == v:
-    return True
-
-def email_validate(e): 
-  if not e:
-    return True
-  if e and EMAIL_RE.match(e):
-    return True
 
 last_page = '/'
 
@@ -228,7 +173,7 @@ class Wiki(db.Model):
     return wiki
 
   @classmethod
-  def make_entry(cls, title, content='initial content of article'):
+  def make_entry(cls, title, content=' '):
     entry = cls(title = title,
                 content = content)
     return entry
@@ -242,9 +187,7 @@ class Wiki(db.Model):
     d['wiki_created'] = cls.created.strftime(time_format)
     d['wiki_edited'] = cls.last_modified.strftime(time_format)
     
-def make_last_edit_str(time):
-  return 'This page was last edited on: %s' % time
-  
+ 
 class WikiPage(Handler):
 
   def get(self, page):
@@ -252,7 +195,7 @@ class WikiPage(Handler):
     global last_page
     params = {}
     user = self.user
-    wiki = Wiki.by_title(str(page))
+    wiki = Wiki.by_title(page)
 
     if not wiki:
       if not user:
@@ -337,11 +280,71 @@ class Front(Handler):
 
 PAGE_RE = r'(/(?:[a-zA-Z0-9_-]+/?)*)'
 
-app = webapp2.WSGIApplication([('/?', Front),
-                               ('/login', Login),
-                               ('/logout', Logout),
-                               ('/signup', Signup),
-                               ('/_edit' + PAGE_RE, EditPage),
+app = webapp2.WSGIApplication([(r'/?', Front),
+                               (r'/login/?', Login),
+                               (r'/logout/?', Logout),
+                               (r'/signup/?', Signup),
+                               (r'/_edit/?' + PAGE_RE, EditPage),
                                (PAGE_RE, WikiPage)
                                ],
                                 debug=True)
+
+# string substitution procedure for wiki pages last edited footer
+
+def make_last_edit_str(time):
+  return 'This page was last edited on: %s' % time
+ 
+# sign-up form validation stuff
+
+USER_RE = re.compile("^[a-zA-Z0-9_-]{3,20}$")
+PASS_RE = re.compile("^.{3,20}$")
+EMAIL_RE = re.compile("^[\S]+@[\S]+\.[\S]+$")
+
+def user_validate(u):
+  if USER_RE.match(u):
+    return True
+
+def password_validate(p):
+  if PASS_RE.match(p):
+    return True
+
+def password_verify(p,v):
+  if p == v:
+    return True
+
+def email_validate(e): 
+  if not e:
+    return True
+  if e and EMAIL_RE.match(e):
+    return True
+
+# cookie setting stuff
+
+secret = 'you will never guess me'
+
+def make_secure_val(val):
+  return '%s|%s' % (val, hmac.new(secret, val).hexdigest())
+
+def check_secure_val(secure_val):
+  val = secure_val.split('|')[0]
+  if secure_val == make_secure_val(val):
+    return val 
+
+# password hashing stuff
+
+def make_salt():
+  return ''.join(random.choice(string.letters) for x in range(5))
+
+def make_hash(un, pw, salt=None):
+  if not salt:
+    salt = make_salt()
+  h = hashlib.sha256(un + pw + salt).hexdigest()
+  return '%s|%s' % (salt, h)
+
+def check_hash(un, pw, h):
+  salt = h.split('|')[0]
+  if h == make_hash(un, pw, salt):
+    return True
+
+def users_key(group='default'):
+  return db.Key.from_path('Users', group)

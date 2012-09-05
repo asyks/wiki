@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+  <div class="wiki-header">
+		{{ edit | safe }}|
+		{{ history | safe }}
+		{{ auth | safe }}
+	</div>
+    <br>
+
+    <div>Wiki Front Page</div>
+
+{% endblock %}
