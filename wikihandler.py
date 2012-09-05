@@ -331,7 +331,7 @@ class Front(Handler):
       params['auth'] = user.username + '(<a href="/logout">logout</a>)' 
  
     last_page = '/'
-    self.render('wiki-front.html', **params)
+#    self.render('wiki-front.html', **params)
  
 # Routing Table 
 
