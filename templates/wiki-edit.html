@@ -9,12 +9,16 @@
 	</div>
     <br>
 
-		<div id="title">{{ title }}</div>
+		<div id="wiki-title">{{ title }}</div>
 		<br>
 
 		<form id="wiki-edit" method="post">
 
-			<textarea name="content">{{content|safe}}</textarea>
+			<table>
+				<tr>
+					<td><textarea name="content">{{content|safe}}</textarea></td>
+				</tr>
+			</table>
   
 			<input type="submit">
 
