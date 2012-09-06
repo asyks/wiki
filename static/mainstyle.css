@@ -64,10 +64,18 @@ input[type=submit] {
 }
 
 .wiki-header {
-		display: block;
 		color: #C0C0C0;
 		text-align: right; 
     text-decoration: none;
+}
+
+.edit-and-history {
+		float: left;
+		margin-left: 550px;
+}
+
+.login-and-logout {
+		float: right;
 }
 
 .wiki-title {
@@ -96,4 +104,3 @@ input[type=submit] {
     margin-top: 5px;
 		white-space: normal;
 }
-

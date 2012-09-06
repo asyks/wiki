@@ -1,55 +1,19 @@
 import webapp2
 import jinja2
 import os 
-import hashlib
-import hmac
-import random
-import string
-import re
 import logging
 
 from google.appengine.ext import db
-from datetime import datetime
+from utility import *
 
 path = os.path.dirname(__file__)
 templates = os.path.join(path, 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(templates), 
                                autoescape = True)
 
-# Users entity 
+last_page = '/' # initialize last_page to wiki front
 
-class Users(db.Model):
-
-  username = db.StringProperty(required=True)
-  pw_hash = db.StringProperty(required=True)
-  email = db.StringProperty()
-  created = db.DateTimeProperty(auto_now_add=True)
-
-  @classmethod
-  def by_id(cls, user_id):
-    return cls.get_by_id(user_id, parent=users_key())
-
-  @classmethod
-  def by_name(cls, name):
-    u = cls.all()
-    u = u.filter('username =', name).get()
-    return u
-
-  @classmethod
-  def register(cls, un, pw, email=None):
-    pw = make_hash(un, pw)
-    return cls(parent=users_key(),
-               username=un,
-               pw_hash=pw,
-               email=email)
-
-  @classmethod
-  def login(cls, un, pw):
-   logging.error('login attempt')
-   u = cls.by_name(un)
-   if u and check_hash(un, pw, u.pw_hash): 
-      logging.error('success login')
-      return u 
+# Main RequestHandler class
 
 class Handler(webapp2.RequestHandler):
 
@@ -89,7 +53,43 @@ class Handler(webapp2.RequestHandler):
     else:
       self.format = 'html'
 
-last_page = '/'
+# Users entity 
+
+def users_key(group='default'):
+  return db.Key.from_path('Users', group)
+
+class Users(db.Model):
+
+  username = db.StringProperty(required=True)
+  pw_hash = db.StringProperty(required=True)
+  email = db.StringProperty()
+  created = db.DateTimeProperty(auto_now_add=True)
+
+  @classmethod
+  def by_id(cls, user_id):
+    return cls.get_by_id(user_id, parent=users_key())
+
+  @classmethod
+  def by_name(cls, name):
+    u = cls.all()
+    u = u.filter('username =', name).get()
+    return u
+
+  @classmethod
+  def register(cls, un, pw, email=None):
+    pw = make_hash(un, pw)
+    return cls(parent=users_key(),
+               username=un,
+               pw_hash=pw,
+               email=email)
+
+  @classmethod
+  def login(cls, un, pw):
+   logging.error('login attempt')
+   u = cls.by_name(un)
+   if u and check_hash(un, pw, u.pw_hash): 
+      logging.error('success login')
+      return u 
 
 class Login(Handler):
   
@@ -160,6 +160,11 @@ class Signup(Handler):
       self.login(new_user)
       self.redirect(last_page)
 
+# Wiki articles entity
+
+def wiki_key(group='default'):
+  return db.Key.from_path('Wiki', group)
+
 class Wiki(db.Model):
 
   title = db.StringProperty(required = True)
@@ -174,20 +179,22 @@ class Wiki(db.Model):
 
   @classmethod
   def make_entry(cls, title, content=' '):
-    entry = cls(title = title,
+    entry = cls(parent = wiki_key(),
+                title = title,
                 content = content)
     return entry
 
   @classmethod
   def as_dict(cls):
-    time_format = '%a %b %y %H:%M:%S %Y' 
+    time_format = '%d, %h %y - %H:%M:%S' 
     d = {}
     d['wiki_title'] = cls.title
     d['wiki_content'] = cls.content
     d['wiki_created'] = cls.created.strftime(time_format)
     d['wiki_edited'] = cls.last_modified.strftime(time_format)
     
- 
+# Wiki articles view handler 
+
 class WikiPage(Handler):
 
   def get(self, page):
@@ -208,8 +215,7 @@ class WikiPage(Handler):
     elif wiki:
       params['title'] = wiki.title
       params['content'] = wiki.content
-      time_format = '%a %b %y %H:%M:%S %Y' 
-      last_mod = wiki.last_modified.strftime(time_format)
+      last_mod = format_datetime(wiki.last_modified)
       last_mod = make_last_edit_str(last_mod)
       params['edited'] = last_mod
       if not user:
@@ -223,6 +229,8 @@ class WikiPage(Handler):
     last_page = page
     self.render('wiki-view.html', **params)
      
+# Wiki articles edit handler
+
 class EditPage(Handler):
  
   def get(self, page):
@@ -232,12 +240,18 @@ class EditPage(Handler):
     user = self.user
     wiki = Wiki.by_title(str(page))
 
+    if not wiki:
+      new_entry = Wiki.make_entry(page)
+      new_entry.put()
+      self.redirect('/_edit' + page) 
+
     if not user:
       self.redirect(last_page)
     elif user:
       params['title'] = wiki.title
       params['content'] = wiki.content
-      params['edited'] = wiki.last_modified
+      last_mod = format_datetime(wiki.last_modified)
+      params['edited'] = last_mod 
       params['edit'] = '<a href="/_edit%s">edit</a>' % page
       params['history'] = '<a href ="%s">history</a>' % page
       params['auth'] = user.username + '(<a href="/logout">logout</a>)' 
@@ -249,6 +263,11 @@ class EditPage(Handler):
 
     user = self.user
 
+    ## history mods: create a new wiki entity instead of getting the existing one
+    ## the easiest way to do this may be to query for all entities with title=page
+    ## and then get the one with the most recent created date
+    ## gqlQuery('SELECT * FROM Wiki WHERE title = :1 ORDER BY created ASEC')
+
     if user:
       new_content = self.request.get('content')
       wiki = Wiki.by_title(page)
@@ -258,6 +277,8 @@ class EditPage(Handler):
 
     else:
       redirect(last_page)
+
+# Wiki front page class
 
 class Front(Handler):
   
@@ -278,7 +299,7 @@ class Front(Handler):
  
 # Routing Table 
 
-PAGE_RE = r'(/(?:[a-zA-Z0-9_-]+/?)*)'
+PAGE_RE = r'(/(?:[a-zA-Z0-9_-]+/?)*)' # wiki page regex
 
 app = webapp2.WSGIApplication([(r'/?', Front),
                                (r'/login/?', Login),
@@ -288,63 +309,3 @@ app = webapp2.WSGIApplication([(r'/?', Front),
                                (PAGE_RE, WikiPage)
                                ],
                                 debug=True)
-
-# string substitution procedure for wiki pages last edited footer
-
-def make_last_edit_str(time):
-  return 'This page was last edited on: %s' % time
- 
-# sign-up form validation stuff
-
-USER_RE = re.compile("^[a-zA-Z0-9_-]{3,20}$")
-PASS_RE = re.compile("^.{3,20}$")
-EMAIL_RE = re.compile("^[\S]+@[\S]+\.[\S]+$")
-
-def user_validate(u):
-  if USER_RE.match(u):
-    return True
-
-def password_validate(p):
-  if PASS_RE.match(p):
-    return True
-
-def password_verify(p,v):
-  if p == v:
-    return True
-
-def email_validate(e): 
-  if not e:
-    return True
-  if e and EMAIL_RE.match(e):
-    return True
-
-# cookie setting stuff
-
-secret = 'you will never guess me'
-
-def make_secure_val(val):
-  return '%s|%s' % (val, hmac.new(secret, val).hexdigest())
-
-def check_secure_val(secure_val):
-  val = secure_val.split('|')[0]
-  if secure_val == make_secure_val(val):
-    return val 
-
-# password hashing stuff
-
-def make_salt():
-  return ''.join(random.choice(string.letters) for x in range(5))
-
-def make_hash(un, pw, salt=None):
-  if not salt:
-    salt = make_salt()
-  h = hashlib.sha256(un + pw + salt).hexdigest()
-  return '%s|%s' % (salt, h)
-
-def check_hash(un, pw, h):
-  salt = h.split('|')[0]
-  if h == make_hash(un, pw, salt):
-    return True
-
-def users_key(group='default'):
-  return db.Key.from_path('Users', group)
