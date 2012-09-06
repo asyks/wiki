@@ -1,15 +1,9 @@
 import webapp2
 import jinja2
 import os 
-import hashlib
-import hmac
-import random
-import string
-import re
 import logging
 
 from google.appengine.ext import db
-from datetime import datetime
 from utility import *
 
 path = os.path.dirname(__file__)
@@ -166,6 +160,11 @@ class Signup(Handler):
       self.login(new_user)
       self.redirect(last_page)
 
+# Wiki articles entity
+
+def wiki_key(group='default'):
+  return db.Key.from_path('Wiki', group)
+
 class Wiki(db.Model):
 
   title = db.StringProperty(required = True)
@@ -180,7 +179,8 @@ class Wiki(db.Model):
 
   @classmethod
   def make_entry(cls, title, content=' '):
-    entry = cls(title = title,
+    entry = cls(parent = wiki_key(),
+                title = title,
                 content = content)
     return entry
 
@@ -193,10 +193,8 @@ class Wiki(db.Model):
     d['wiki_created'] = cls.created.strftime(time_format)
     d['wiki_edited'] = cls.last_modified.strftime(time_format)
     
-def format_datetime(date_time):
-  time_format = '%d, %h %Y %H:%M:%S' 
-  return date_time.strftime(time_format)
- 
+# Wiki articles view handler 
+
 class WikiPage(Handler):
 
   def get(self, page):
@@ -231,6 +229,8 @@ class WikiPage(Handler):
     last_page = page
     self.render('wiki-view.html', **params)
      
+# Wiki articles edit handler
+
 class EditPage(Handler):
  
   def get(self, page):
@@ -263,6 +263,11 @@ class EditPage(Handler):
 
     user = self.user
 
+    ## history mods: create a new wiki entity instead of getting the existing one
+    ## the easiest way to do this may be to query for all entities with title=page
+    ## and then get the one with the most recent created date
+    ## gqlQuery('SELECT * FROM Wiki WHERE title = :1 ORDER BY created ASEC')
+
     if user:
       new_content = self.request.get('content')
       wiki = Wiki.by_title(page)
@@ -272,6 +277,8 @@ class EditPage(Handler):
 
     else:
       redirect(last_page)
+
+# Wiki front page class
 
 class Front(Handler):
   
