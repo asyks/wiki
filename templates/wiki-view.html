@@ -3,9 +3,12 @@
 {% block content %}
 
   <div class="wiki-header">
-		{{ edit | safe }}|
-		{{ history | safe }}
-		{{ auth | safe }}
+		<div class="edit-and-history">
+			{{ edit | safe }} {% if edit %}|{% endif %} {{ history | safe }}
+		</div>
+		<div class="login-and-logout">
+			{{ auth | safe }}
+		</div>
 	</div>
    
     <br>
