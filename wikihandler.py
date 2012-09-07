@@ -174,7 +174,7 @@ class Wiki(db.Model):
 
   @classmethod
   def by_title(cls, title):
-    wiki = cls.all().filter('title =', title).get()
+    wiki = cls.all().filter('title =', title).order('-created').get()
     return wiki
 
   @classmethod
@@ -270,9 +270,8 @@ class EditPage(Handler):
 
     if user:
       new_content = self.request.get('content')
-      wiki = Wiki.by_title(page)
-      wiki.content = new_content
-      wiki.put()
+      new_entry = Wiki.make_entry(page, new_content)
+      new_entry.put()
       self.redirect(page)
 
     else:
@@ -295,7 +294,7 @@ class Front(Handler):
       params['auth'] = user.username + '(<a href="/logout">logout</a>)' 
  
     last_page = '/'
-#    self.render('wiki-front.html', **params)
+    self.render('wiki-front.html', **params)
  
 # Routing Table 
 
