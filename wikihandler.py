@@ -170,7 +170,7 @@ class Wiki(db.Model):
   title = db.StringProperty(required = True)
   content = db.TextProperty(required = True)
   created = db.DateTimeProperty(auto_now_add = True)
-  last_modified = db.DateTimeProperty(auto_now = True)
+  version = db.StringProperty()
 
   @classmethod
   def by_title(cls, title):
@@ -178,10 +178,11 @@ class Wiki(db.Model):
     return wiki
 
   @classmethod
-  def make_entry(cls, title, content=' '):
+  def make_entry(cls, title, version, content=' '):
     entry = cls(parent = wiki_key(),
                 title = title,
-                content = content)
+                content = content,
+                version = str(version))
     return entry
 
   @classmethod
@@ -208,14 +209,14 @@ class WikiPage(Handler):
       if not user:
         self.redirect(last_page)
       elif user:
-        new_entry = Wiki.make_entry(page)
+        new_entry = Wiki.make_entry(page,1)
         new_entry.put()
         self.redirect('/_edit' + page) 
 
     elif wiki:
       params['title'] = wiki.title
       params['content'] = wiki.content
-      last_mod = format_datetime(wiki.last_modified)
+      last_mod = format_datetime(wiki.created)
       last_mod = make_last_edit_str(last_mod)
       params['edited'] = last_mod
       if not user:
@@ -238,10 +239,10 @@ class EditPage(Handler):
     global last_page
     params = {}
     user = self.user
-    wiki = Wiki.by_title(str(page))
+    wiki = Wiki.by_title(page)
 
     if not wiki:
-      new_entry = Wiki.make_entry(page)
+      new_entry = Wiki.make_entry(page, 1)
       new_entry.put()
       self.redirect('/_edit' + page) 
 
@@ -250,7 +251,7 @@ class EditPage(Handler):
     elif user:
       params['title'] = wiki.title
       params['content'] = wiki.content
-      last_mod = format_datetime(wiki.last_modified)
+      last_mod = format_datetime(wiki.created)
       params['edited'] = last_mod 
       params['edit'] = '<a href="/_edit%s">edit</a>' % page
       params['history'] = '<a href ="%s">history</a>' % page
@@ -269,8 +270,10 @@ class EditPage(Handler):
     ## gqlQuery('SELECT * FROM Wiki WHERE title = :1 ORDER BY created ASEC')
 
     if user:
+      wiki = Wiki.by_title(page)
+      version = int(wiki.version) + 1
       new_content = self.request.get('content')
-      new_entry = Wiki.make_entry(page, new_content)
+      new_entry = Wiki.make_entry(page, new_content, version)
       new_entry.put()
       self.redirect(page)
 
@@ -295,7 +298,21 @@ class Front(Handler):
  
     last_page = '/'
     self.render('wiki-front.html', **params)
- 
+
+# history page class
+
+class History(Handler):
+
+  def get(self, page):
+
+    global last_page
+    
+    user = self.user
+    history = db.GqlQuery('SELECT * FROM Wiki WHERE title = :1 ORDER BY created DESC', page)
+    history = list(history)
+
+    self.render('wiki-history.html', title=page, history=history)
+
 # Routing Table 
 
 PAGE_RE = r'(/(?:[a-zA-Z0-9_-]+/?)*)' # wiki page regex
@@ -305,6 +322,7 @@ app = webapp2.WSGIApplication([(r'/?', Front),
                                (r'/logout/?', Logout),
                                (r'/signup/?', Signup),
                                (r'/_edit/?' + PAGE_RE, EditPage),
+                               (r'/_history/?' + PAGE_RE, History),
                                (PAGE_RE, WikiPage)
                                ],
                                 debug=True)

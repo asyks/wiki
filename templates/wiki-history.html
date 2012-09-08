@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+  <div class="wiki-header">
+		<div class="edit-and-history">
+			{{ edit | safe }} {% if edit %}|{% endif %} {{ history | safe }}
+		</div>
+		<div class="login-and-logout">
+			{{ auth | safe }}
+		</div>
+	</div>
+   
+    <br>
+		<div class="wiki-title" id="title">{{ title }}</div>
+		<br>
+
+    {% for h in history %}
+			<div style="float:left;" name="created">{{h.created}}</div>
+			<div style="float:right;" name="content">{{h.content}}</div>
+			<br>
+		{% endfor %}
+
+    <br>
+    <div class="wiki-footer" id="edited">{{ edited }}</div>
+
+{% endblock %}
