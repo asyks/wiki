@@ -15,11 +15,18 @@
 		<div class="wiki-title" id="title">{{ title }}</div>
 		<br>
 
-    {% for h in history %}
-			<div style="float:left;" name="created">{{h.created}}</div>
-			<div style="float:right;" name="content">{{h.content}}</div>
-			<br>
+    <table>
+
+    {% for h in page_history %}
+      <tr>
+				<td>{{h.created}}</td>
+				<td>{{h.content}}</td>
+				<td><a href="{{h.title}}?v={{h.version}}">view</a></td> 
+				<td><a href="/_edit{{h.title}}?v={{h.version}}">edit</a></td> 
+			</tr>
 		{% endfor %}
+
+    </table>
 
     <br>
     <div class="wiki-footer" id="edited">{{ edited }}</div>

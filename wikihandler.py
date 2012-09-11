@@ -42,6 +42,19 @@ class Handler(webapp2.RequestHandler):
 
   def logout(self):
     self.response.delete_cookie('user_id')
+
+  params = {}
+
+  def make_logged_out_header(self, page):
+    history_link = '/_history' + page 
+    self.params['history'] = '<a href ="%s">history</a>' % history_link
+    self.params['auth'] = '<a href="/login"> login </a>|<a href="/signup"> signup </a>'
+
+  def make_logged_in_header(self, page, user):
+    history_link = '/_history' + page 
+    self.params['edit'] = '<a href="/_edit%s">edit</a>' % page
+    self.params['history'] = '<a href ="%s">history</a>' % history_link
+    self.params['auth'] = user.username + '(<a href="/logout"> logout </a>)' 
     
   def initialize(self, *a, **kw):
     webapp2.RequestHandler.initialize(self, *a, **kw)
@@ -168,9 +181,9 @@ def wiki_key(group='default'):
 class Wiki(db.Model):
 
   title = db.StringProperty(required = True)
+  version = db.IntegerProperty(required = True)
   content = db.TextProperty(required = True)
   created = db.DateTimeProperty(auto_now_add = True)
-  version = db.StringProperty()
 
   @classmethod
   def by_title(cls, title):
@@ -178,11 +191,16 @@ class Wiki(db.Model):
     return wiki
 
   @classmethod
+  def by_title_and_version(cls, title, version):
+    wiki = cls.all().filter('title =', title).filter('version =', version).get()
+    return wiki
+
+  @classmethod
   def make_entry(cls, title, version, content=' '):
     entry = cls(parent = wiki_key(),
                 title = title,
-                content = content,
-                version = str(version))
+                version = version,  
+                content = content)
     return entry
 
   @classmethod
@@ -201,34 +219,39 @@ class WikiPage(Handler):
   def get(self, page):
 
     global last_page
-    params = {}
+    logging.error(self.params)
     user = self.user
-    wiki = Wiki.by_title(page)
+    v = self.request.get('v')
+    history_link = '/_history' + page 
+
+    if not v:
+      logging.error('render view without version')
+      wiki = Wiki.by_title(page)
+    elif v:
+      logging.error('render view with version')
+      wiki = Wiki.by_title_and_version(page, int(v)) 
 
     if not wiki:
       if not user:
         self.redirect(last_page)
       elif user:
-        new_entry = Wiki.make_entry(page,1)
+        new_entry = Wiki.make_entry(page,0)
         new_entry.put()
         self.redirect('/_edit' + page) 
-
     elif wiki:
-      params['title'] = wiki.title
-      params['content'] = wiki.content
+      self.params['title'] = wiki.title
+      self.params['content'] = wiki.content
       last_mod = format_datetime(wiki.created)
       last_mod = make_last_edit_str(last_mod)
-      params['edited'] = last_mod
-      if not user:
-        params['history'] = '<a href="%s"> history </a>' % page
-        params['auth'] = '<a href="/login"> login </a>|<a href="/signup"> signup </a>'
-      elif user:
-        params['edit'] = '<a href="/_edit%s">edit</a>' % page
-        params ['history'] = '<a href="%s">history</a>' % page
-        params['auth'] = user.username + '(<a href="/logout">logout</a>)' 
+      self.params['edited'] = last_mod
+
+    if not user:
+      self.make_logged_out_header(page)
+    elif user:
+      self.make_logged_in_header(page, self.user)
  
     last_page = page
-    self.render('wiki-view.html', **params)
+    self.render('wiki-view.html', **self.params)
      
 # Wiki articles edit handler
 
@@ -237,43 +260,40 @@ class EditPage(Handler):
   def get(self, page):
  
     global last_page
-    params = {}
     user = self.user
-    wiki = Wiki.by_title(page)
-
-    if not wiki:
-      new_entry = Wiki.make_entry(page, 1)
-      new_entry.put()
-      self.redirect('/_edit' + page) 
+    v = self.request.get('v')
 
     if not user:
       self.redirect(last_page)
-    elif user:
-      params['title'] = wiki.title
-      params['content'] = wiki.content
-      last_mod = format_datetime(wiki.created)
-      params['edited'] = last_mod 
-      params['edit'] = '<a href="/_edit%s">edit</a>' % page
-      params['history'] = '<a href ="%s">history</a>' % page
-      params['auth'] = user.username + '(<a href="/logout">logout</a>)' 
+
+    if not v:
+      wiki = Wiki.by_title(page)
+    elif v:
+      wiki = Wiki.by_title_and_version(page, int(v))
+ 
+    if not wiki:
+      new_entry = Wiki.make_entry(page, 0)
+      new_entry.put()
+      self.redirect('/_edit' + page) 
+
+    last_mod = format_datetime(wiki.created)
+    self.params['title'] = wiki.title
+    self.params['content'] = wiki.content
+    self.params['edited'] = last_mod 
+    self.make_logged_in_header(page, self.user)
 
     last_page = '/_edit' + page
-    self.render('wiki-edit.html', **params)
+    self.render('wiki-edit.html', **self.params)
 
   def post(self, page):
 
     user = self.user
 
-    ## history mods: create a new wiki entity instead of getting the existing one
-    ## the easiest way to do this may be to query for all entities with title=page
-    ## and then get the one with the most recent created date
-    ## gqlQuery('SELECT * FROM Wiki WHERE title = :1 ORDER BY created ASEC')
-
     if user:
       wiki = Wiki.by_title(page)
-      version = int(wiki.version) + 1
+      version = wiki.version + 1
       new_content = self.request.get('content')
-      new_entry = Wiki.make_entry(page, new_content, version)
+      new_entry = Wiki.make_entry(page, version, new_content)
       new_entry.put()
       self.redirect(page)
 
@@ -281,7 +301,7 @@ class EditPage(Handler):
       redirect(last_page)
 
 # Wiki front page class
-
+'''
 class Front(Handler):
   
   def get(self):
@@ -295,10 +315,10 @@ class Front(Handler):
       params['auth'] = '<a href="/login"> login </a>|<a href="/signup"> signup </a>'
     elif user:
       params['auth'] = user.username + '(<a href="/logout">logout</a>)' 
- 
+
     last_page = '/'
     self.render('wiki-front.html', **params)
-
+'''
 # history page class
 
 class History(Handler):
@@ -306,18 +326,25 @@ class History(Handler):
   def get(self, page):
 
     global last_page
-    
     user = self.user
-    history = db.GqlQuery('SELECT * FROM Wiki WHERE title = :1 ORDER BY created DESC', page)
-    history = list(history)
+    page_history = db.GqlQuery('SELECT * FROM Wiki WHERE title = :1 ORDER BY created DESC', page)
+    page_history = list(page_history)
+    self.params['page_history'] = page_history
+    self.params['title'] = page
 
-    self.render('wiki-history.html', title=page, history=history)
+    if not user:
+      self.make_logged_out_header(page)
+    elif user:
+      self.make_logged_in_header(page, user)
+
+    last_page = '/history' + page
+    self.render('wiki-history.html', **self.params)
 
 # Routing Table 
 
 PAGE_RE = r'(/(?:[a-zA-Z0-9_-]+/?)*)' # wiki page regex
 
-app = webapp2.WSGIApplication([(r'/?', Front),
+app = webapp2.WSGIApplication([#(r'/?', Front),
                                (r'/login/?', Login),
                                (r'/logout/?', Logout),
                                (r'/signup/?', Signup),
