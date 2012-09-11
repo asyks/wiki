@@ -5,6 +5,7 @@ import logging
 
 from google.appengine.ext import db
 from utility import *
+from datamodel import *
 
 path = os.path.dirname(__file__)
 templates = os.path.join(path, 'templates')
@@ -203,15 +204,6 @@ class Wiki(db.Model):
                 content = content)
     return entry
 
-  @classmethod
-  def as_dict(cls):
-    time_format = '%d, %h %y - %H:%M:%S' 
-    d = {}
-    d['wiki_title'] = cls.title
-    d['wiki_content'] = cls.content
-    d['wiki_created'] = cls.created.strftime(time_format)
-    d['wiki_edited'] = cls.last_modified.strftime(time_format)
-    
 # Wiki articles view handler 
 
 class WikiPage(Handler):
@@ -327,7 +319,7 @@ class History(Handler):
 
     global last_page
     user = self.user
-    page_history = db.GqlQuery('SELECT * FROM Wiki WHERE title = :1 ORDER BY created DESC', page)
+    page_history = Wiki.all().filter('title =', page).order('-created')
     page_history = list(page_history)
     self.params['page_history'] = page_history
     self.params['title'] = page
