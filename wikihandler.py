@@ -3,7 +3,6 @@ import jinja2
 import os 
 import logging
 
-from google.appengine.ext import db
 from utility import *
 from datamodel import *
 
@@ -14,7 +13,7 @@ jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(templates),
 
 last_page = '/' # initialize last_page to wiki front
 
-# Main RequestHandler class
+# Main RequestHandler class parent of all other request handlers
 
 class Handler(webapp2.RequestHandler):
 
@@ -67,43 +66,7 @@ class Handler(webapp2.RequestHandler):
     else:
       self.format = 'html'
 
-# Users entity 
-
-def users_key(group='default'):
-  return db.Key.from_path('Users', group)
-
-class Users(db.Model):
-
-  username = db.StringProperty(required=True)
-  pw_hash = db.StringProperty(required=True)
-  email = db.StringProperty()
-  created = db.DateTimeProperty(auto_now_add=True)
-
-  @classmethod
-  def by_id(cls, user_id):
-    return cls.get_by_id(user_id, parent=users_key())
-
-  @classmethod
-  def by_name(cls, name):
-    u = cls.all()
-    u = u.filter('username =', name).get()
-    return u
-
-  @classmethod
-  def register(cls, un, pw, email=None):
-    pw = make_hash(un, pw)
-    return cls(parent=users_key(),
-               username=un,
-               pw_hash=pw,
-               email=email)
-
-  @classmethod
-  def login(cls, un, pw):
-   logging.error('login attempt')
-   u = cls.by_name(un)
-   if u and check_hash(un, pw, u.pw_hash): 
-      logging.error('success login')
-      return u 
+# Login class that handles user login requests
 
 class Login(Handler):
   
@@ -131,6 +94,8 @@ class Logout(Handler):
 
     self.logout()
     self.redirect(last_page)
+
+# Signup class that handler all signup requests
 
 class Signup(Handler):
 
@@ -173,36 +138,6 @@ class Signup(Handler):
       new_user.put()
       self.login(new_user)
       self.redirect(last_page)
-
-# Wiki articles entity
-
-def wiki_key(group='default'):
-  return db.Key.from_path('Wiki', group)
-
-class Wiki(db.Model):
-
-  title = db.StringProperty(required = True)
-  version = db.IntegerProperty(required = True)
-  content = db.TextProperty(required = True)
-  created = db.DateTimeProperty(auto_now_add = True)
-
-  @classmethod
-  def by_title(cls, title):
-    wiki = cls.all().filter('title =', title).order('-created').get()
-    return wiki
-
-  @classmethod
-  def by_title_and_version(cls, title, version):
-    wiki = cls.all().filter('title =', title).filter('version =', version).get()
-    return wiki
-
-  @classmethod
-  def make_entry(cls, title, version, content=' '):
-    entry = cls(parent = wiki_key(),
-                title = title,
-                version = version,  
-                content = content)
-    return entry
 
 # Wiki articles view handler 
 
@@ -292,7 +227,7 @@ class EditPage(Handler):
     else:
       redirect(last_page)
 
-# Wiki front page class
+# Wiki front page handler 
 '''
 class Front(Handler):
   
@@ -311,7 +246,8 @@ class Front(Handler):
     last_page = '/'
     self.render('wiki-front.html', **params)
 '''
-# history page class
+
+# History page handler 
 
 class History(Handler):
 
@@ -334,7 +270,7 @@ class History(Handler):
 
 # Routing Table 
 
-PAGE_RE = r'(/(?:[a-zA-Z0-9_-]+/?)*)' # wiki page regex
+PAGE_RE = r'(/(?:[a-zA-Z0-9_-]+/?)*)' # regex for handling wiki page requests
 
 app = webapp2.WSGIApplication([#(r'/?', Front),
                                (r'/login/?', Login),
