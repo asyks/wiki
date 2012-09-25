@@ -1,4 +1,7 @@
+import logging
+
 from google.appengine.ext import db
+from utility import *
 
 # Users object
 
@@ -32,7 +35,6 @@ class Users(db.Model):
 
   @classmethod
   def login(cls, un, pw):
-   logging.error('login attempt')
    u = cls.by_name(un)
    if u and check_hash(un, pw, u.pw_hash): 
       logging.error('success login')
@@ -52,11 +54,13 @@ class Wiki(db.Model):
 
   @classmethod
   def by_title(cls, title):
+    logging.error('wiki query')
     wiki = cls.all().filter('title =', title).order('-created').get()
     return wiki
 
   @classmethod
   def by_title_and_version(cls, title, version):
+    logging.error('wiki query')
     wiki = cls.all().filter('title =', title).filter('version =', version).get()
     return wiki
 

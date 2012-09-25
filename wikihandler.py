@@ -5,6 +5,8 @@ import logging
 
 from utility import *
 from datamodel import *
+from wikimemcache import *
+from google.appengine.api import memcache
 
 path = os.path.dirname(__file__)
 templates = os.path.join(path, 'templates')
@@ -13,7 +15,7 @@ jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(templates),
 
 last_page = '/' # initialize last_page to wiki front
 
-# Main RequestHandler class parent of all other request handlers
+## Main RequestHandler class: parent of all other request handlers
 
 class Handler(webapp2.RequestHandler):
 
@@ -43,7 +45,15 @@ class Handler(webapp2.RequestHandler):
   def logout(self):
     self.response.delete_cookie('user_id')
 
-  params = {}
+  def get_wiki_page(self, title, version=None):
+    if not version:
+      wiki = Wiki.by_title(title)
+    elif version:
+      wiki = Wiki.by_title_and_version(title, int(version)) 
+    logging.error('self.get_wiki_page - wiki: %s' % wiki)
+    return wiki
+ 
+  params = {} ## params will contain key value pairs used by jinja2 templates to render html
 
   def make_logged_out_header(self, page):
     history_link = '/_history' + page 
@@ -100,6 +110,7 @@ class Logout(Handler):
 class Signup(Handler):
 
   def get(self):
+
     self.render('/signup-form.html')
 
   def post(self):
@@ -139,6 +150,7 @@ class Signup(Handler):
       self.login(new_user)
       self.redirect(last_page)
 
+
 # Wiki articles view handler 
 
 class WikiPage(Handler):
@@ -146,25 +158,20 @@ class WikiPage(Handler):
   def get(self, page):
 
     global last_page
-    logging.error(self.params)
     user = self.user
-    v = self.request.get('v')
-    history_link = '/_history' + page 
+    version = self.request.get('v')
 
-    if not v:
-      logging.error('render view without version')
-      wiki = Wiki.by_title(page)
-    elif v:
-      logging.error('render view with version')
-      wiki = Wiki.by_title_and_version(page, int(v)) 
+    wiki, save_time = wiki_cache(page, version)
 
+    if not user and not wiki:
+      self.redirect(last_page)
+      return
+ 
     if not wiki:
-      if not user:
-        self.redirect(last_page)
-      elif user:
-        new_entry = Wiki.make_entry(page,0)
-        new_entry.put()
-        self.redirect('/_edit' + page) 
+      new_entry = Wiki.make_entry(page,0)
+      new_entry.put()
+      self.redirect('/_edit' + page) 
+
     elif wiki:
       self.params['title'] = wiki.title
       self.params['content'] = wiki.content
@@ -180,6 +187,7 @@ class WikiPage(Handler):
     last_page = page
     self.render('wiki-view.html', **self.params)
      
+
 # Wiki articles edit handler
 
 class EditPage(Handler):
@@ -188,25 +196,23 @@ class EditPage(Handler):
  
     global last_page
     user = self.user
-    v = self.request.get('v')
+    version = self.request.get('v')
+
+    wiki, save_time = wiki_cache(page, version)
 
     if not user:
       self.redirect(last_page)
+      return 
 
-    if not v:
-      wiki = Wiki.by_title(page)
-    elif v:
-      wiki = Wiki.by_title_and_version(page, int(v))
- 
     if not wiki:
-      new_entry = Wiki.make_entry(page, 0)
-      new_entry.put()
-      self.redirect('/_edit' + page) 
+      wiki = Wiki.make_entry(page, 0)
+      wiki.put()
 
     last_mod = format_datetime(wiki.created)
     self.params['title'] = wiki.title
     self.params['content'] = wiki.content
     self.params['edited'] = last_mod 
+
     self.make_logged_in_header(page, self.user)
 
     last_page = '/_edit' + page
@@ -220,32 +226,12 @@ class EditPage(Handler):
       wiki = Wiki.by_title(page)
       version = wiki.version + 1
       new_content = self.request.get('content')
-      new_entry = Wiki.make_entry(page, version, new_content)
-      new_entry.put()
-      self.redirect(page)
+      new_wiki = wiki_put_and_cache(page, version, new_content)
+      self.redirect(page + '?v=%s' % new_wiki.version)
 
     else:
       redirect(last_page)
 
-# Wiki front page handler 
-'''
-class Front(Handler):
-  
-  def get(self):
-
-    global last_page
-
-    user = self.user
-    params = {}
-
-    if not user:
-      params['auth'] = '<a href="/login"> login </a>|<a href="/signup"> signup </a>'
-    elif user:
-      params['auth'] = user.username + '(<a href="/logout">logout</a>)' 
-
-    last_page = '/'
-    self.render('wiki-front.html', **params)
-'''
 
 # History page handler 
 
@@ -265,7 +251,7 @@ class History(Handler):
     elif user:
       self.make_logged_in_header(page, user)
 
-    last_page = '/history' + page
+    last_page = '/_history' + page
     self.render('wiki-history.html', **self.params)
 
 # Routing Table 
