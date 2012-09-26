@@ -170,7 +170,7 @@ class WikiPage(Handler):
 
     global last_page
     user = self.user
-    version = self.request.get('v')
+    version = self.request.get('v') or None
 
     wiki, save_time = wiki_cache(page, version) ## gets cached html or hits db if not cached
 
