@@ -1,11 +1,16 @@
+
+## standard python library imports and app engine library imports
 import webapp2
 import jinja2
 import os 
 import logging
 
+## wiki - Mickipebia class/object imports
 from utility import *
 from datamodel import *
 from wikimemcache import *
+
+## app engine library memcache import
 from google.appengine.api import memcache
 
 path = os.path.dirname(__file__)
@@ -13,7 +18,8 @@ templates = os.path.join(path, 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(templates), 
                                autoescape = True)
 
-last_page = '/' # initialize last_page to wiki front
+last_page = '/' ## initialize last_page to wiki front
+
 
 ## Main RequestHandler class: parent of all other request handlers
 
@@ -76,7 +82,8 @@ class Handler(webapp2.RequestHandler):
     else:
       self.format = 'html'
 
-# Login class that handles user login requests
+
+## Class that handles user login requests
 
 class Login(Handler):
   
@@ -92,20 +99,24 @@ class Login(Handler):
     user = Users.login(username, password)
 
     if user:
-      self.login(user) 
+      self.login(user) ## sets user cookie 
       self.redirect(last_page)
 
     else:
       self.render('/login-form.html', error='invalid username or password')
 
+
+## Class that handles user login requests
+
 class Logout(Handler):
 
   def get(self):
 
-    self.logout()
+    self.logout() ## removes user cookie  
     self.redirect(last_page)
 
-# Signup class that handler all signup requests
+
+## Handler for all signup requests
 
 class Signup(Handler):
 
@@ -113,7 +124,7 @@ class Signup(Handler):
 
     self.render('/signup-form.html')
 
-  def post(self):
+  def post(self): ## user signup process: tests against regex and then if username is in datastore 
 
     self.username = self.request.get('username')
     self.password = self.request.get('password')
@@ -151,7 +162,7 @@ class Signup(Handler):
       self.redirect(last_page)
 
 
-# Wiki articles view handler 
+## Handler for all view wiki page/article requests 
 
 class WikiPage(Handler):
 
@@ -161,7 +172,7 @@ class WikiPage(Handler):
     user = self.user
     version = self.request.get('v')
 
-    wiki, save_time = wiki_cache(page, version)
+    wiki, save_time = wiki_cache(page, version) ## gets cached html or hits db if not cached
 
     if not user and not wiki:
       self.redirect(last_page)
@@ -179,16 +190,16 @@ class WikiPage(Handler):
       last_mod = make_last_edit_str(last_mod)
       self.params['edited'] = last_mod
 
-    if not user:
+    if not user: ## page header for logged out visitor
       self.make_logged_out_header(page)
-    elif user:
+    elif user: ## page header for logged in visitor
       self.make_logged_in_header(page, self.user)
  
     last_page = page
     self.render('wiki-view.html', **self.params)
      
 
-# Wiki articles edit handler
+## Handler for wiki page/article edit requests 
 
 class EditPage(Handler):
  
@@ -196,9 +207,11 @@ class EditPage(Handler):
  
     global last_page
     user = self.user
-    version = self.request.get('v')
+    version = self.request.get('v') or None
+    logging.error(version)
 
     wiki, save_time = wiki_cache(page, version)
+    logging.error(wiki.version)
 
     if not user:
       self.redirect(last_page)
@@ -213,7 +226,7 @@ class EditPage(Handler):
     self.params['content'] = wiki.content
     self.params['edited'] = last_mod 
 
-    self.make_logged_in_header(page, self.user)
+    self.make_logged_in_header(page, self.user) ## page header for logged in visitor
 
     last_page = '/_edit' + page
     self.render('wiki-edit.html', **self.params)
@@ -233,7 +246,7 @@ class EditPage(Handler):
       redirect(last_page)
 
 
-# History page handler 
+## Handler for all history page requests 
 
 class History(Handler):
 
@@ -246,20 +259,20 @@ class History(Handler):
     self.params['page_history'] = page_history
     self.params['title'] = page
 
-    if not user:
+    if not user: ## page header for logged out visitor
       self.make_logged_out_header(page)
-    elif user:
+    elif user: ## page header for logged out visitor 
       self.make_logged_in_header(page, user)
 
     last_page = '/_history' + page
     self.render('wiki-history.html', **self.params)
 
-# Routing Table 
+
+## Mickipebia Routing Table 
 
 PAGE_RE = r'(/(?:[a-zA-Z0-9_-]+/?)*)' # regex for handling wiki page requests
 
-app = webapp2.WSGIApplication([#(r'/?', Front),
-                               (r'/login/?', Login),
+app = webapp2.WSGIApplication([(r'/login/?', Login),
                                (r'/logout/?', Logout),
                                (r'/signup/?', Signup),
                                (r'/_edit/?' + PAGE_RE, EditPage),

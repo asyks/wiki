@@ -29,6 +29,7 @@ def get_cache(key):
 def wiki_get_and_cache(key, title, version):
   wiki = get_wiki_page(title, version)
   set_cache(key, wiki)
+  wiki, save_time = get_cache(key)
   return wiki, save_time
 
 def wiki_put_and_cache(title, version, content):
@@ -39,10 +40,10 @@ def wiki_put_and_cache(title, version, content):
   return wiki
 
 def wiki_cache(title, version, update=False):
+  logging.error(version)
   key = title + str(version) 
+  logging.error(key)
   wiki, save_time = get_cache(str(key))
   if update == True or wiki == None: 
     wiki, save_time = wiki_get_and_cache(key, title, version)
   return wiki, save_time 
-
-
