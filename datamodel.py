@@ -17,10 +17,12 @@ class Users(db.Model):
 
   @classmethod
   def by_id(cls, user_id):
+    logging.error('Users object query: by_id')
     return cls.get_by_id(user_id, parent=users_key())
 
   @classmethod
   def by_name(cls, name):
+    logging.error('Users object query: by_name')
     u = cls.all()
     u = u.filter('username =', name).get()
     return u
@@ -54,13 +56,13 @@ class Wiki(db.Model):
 
   @classmethod
   def by_title(cls, title):
-    logging.error('wiki query')
+    logging.error('Wiki object query: by_title')
     wiki = cls.all().filter('title =', title).order('-created').get()
     return wiki
 
   @classmethod
   def by_title_and_version(cls, title, version):
-    logging.error('wiki query')
+    logging.error('Wiki object query: by_title_and_version')
     wiki = cls.all().filter('title =', title).filter('version =', version).get()
     return wiki
 

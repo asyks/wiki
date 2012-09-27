@@ -32,7 +32,7 @@ def wiki_get_and_cache(key, title, version):
   wiki, save_time = get_cache(key)
   return wiki, save_time
 
-def wiki_put_and_cache(title, version, content):
+def wiki_put_and_cache(title, version, content=' '):
   key = db.Key.from_path('Wiki', title+str(version)) 
   wiki = Wiki.make_entry(title, version, content)
   wiki.put()
@@ -41,9 +41,22 @@ def wiki_put_and_cache(title, version, content):
 
 def wiki_cache(title, version, update=False):
   key = db.Key.from_path('Wiki', title+str(version)) 
-  logging.error(key)
   wiki, save_time = get_cache(str(key))
-  logging.error(wiki)
   if update == True or wiki == None: 
     wiki, save_time = wiki_get_and_cache(str(key), title, version)
   return wiki, save_time 
+
+
+## All the procedures needed to cache Users queries
+
+def set_user_cache(key, user_id):
+  last_login = datetime.utcnow()
+  memcache.set(key, (user_id, last_login))
+
+def get_user_cache(key):
+  u = memcache.get(key)
+  if u:
+    user_id, last_login = u
+  else:
+    user_id, last_login = None, None
+  return user_id, last_login

@@ -43,10 +43,12 @@ class Handler(webapp2.RequestHandler):
   def read_user_cookie(self):
     name = 'user_id'
     cookie_val = self.request.cookies.get(name)
-    return cookie_val and check_secure_val(cookie_val) # return a and b: if a then return b 
+    return cookie_val and check_secure_val(cookie_val) ## return a and b: if a then return b 
 
-  def login(self, user): # sets the user_id cookie by calling set_user_cookie()
-    self.set_user_cookie(str(user.key().id()))
+  def login(self, user): ## sets the user_id cookie by calling set_user_cookie()
+    user_id = str(user.key().id()) 
+    self.set_user_cookie(user_id)
+    set_user_cache(user.pw_hash, user_id)
 
   def logout(self):
     self.response.delete_cookie('user_id')
@@ -66,12 +68,16 @@ class Handler(webapp2.RequestHandler):
     self.params['history'] = '<a href ="%s">history</a>' % history_link
     self.params['auth'] = '<a href="/login"> login </a>|<a href="/signup"> signup </a>'
 
-  def make_logged_in_header(self, page, user):
+  def make_logged_in_header(self, page, user, version=None):
     history_link = '/_history' + page 
-    self.params['edit'] = '<a href="/_edit%s">edit</a>' % page
+    if version:
+      self.params['edit'] = '<a href="/_edit%s?v=%s">edit</a>' % (page, version)
+    else:
+      self.params['edit'] = '<a href="/_edit%s">edit</a>' % page
     self.params['history'] = '<a href ="%s">history</a>' % history_link
     self.params['auth'] = user.username + '(<a href="/logout"> logout </a>)' 
     
+  ## currently I'm hitting the database on every page load becaseu of self.user initialization
   def initialize(self, *a, **kw):
     webapp2.RequestHandler.initialize(self, *a, **kw)
     user_id = self.read_user_cookie() 
@@ -179,8 +185,9 @@ class WikiPage(Handler):
       return
  
     if not wiki:
-      new_entry = Wiki.make_entry(page,0)
-      new_entry.put()
+#      wiki = Wiki.make_entry(page,0)
+#      wiki.put()
+      wiki = wiki_put_and_cache(page, 0)
       self.redirect('/_edit' + page) 
 
     elif wiki:
@@ -193,7 +200,7 @@ class WikiPage(Handler):
     if not user: ## page header for logged out visitor
       self.make_logged_out_header(page)
     elif user: ## page header for logged in visitor
-      self.make_logged_in_header(page, self.user)
+      self.make_logged_in_header(page, self.user, wiki.version)
  
     last_page = page
     self.render('wiki-view.html', **self.params)
@@ -208,10 +215,8 @@ class EditPage(Handler):
     global last_page
     user = self.user
     version = self.request.get('v') or None
-    logging.error(version)
 
     wiki, save_time = wiki_cache(page, version)
-    logging.error(wiki.version)
 
     if not user:
       self.redirect(last_page)
@@ -226,7 +231,7 @@ class EditPage(Handler):
     self.params['content'] = wiki.content
     self.params['edited'] = last_mod 
 
-    self.make_logged_in_header(page, self.user) ## page header for logged in visitor
+    self.make_logged_in_header(page, self.user, wiki.version) ## page header for logged in visitor
 
     last_page = '/_edit' + page
     self.render('wiki-edit.html', **self.params)
