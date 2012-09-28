@@ -15,9 +15,7 @@ from google.appengine.api import memcache
 
 path = os.path.dirname(__file__)
 templates = os.path.join(path, 'templates')
-jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(templates), 
-                               autoescape = True)
-
+jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(templates)) 
 last_page = '/' ## initialize last_page to wiki front
 
 
@@ -48,7 +46,7 @@ class Handler(webapp2.RequestHandler):
   def login(self, user): ## sets the user_id cookie by calling set_user_cookie()
     user_id = str(user.key().id()) 
     self.set_user_cookie(user_id)
-    set_user_cache(user.pw_hash, user_id)
+    set_user_cache(user.pw_hash, user)
 
   def logout(self):
     self.response.delete_cookie('user_id')
@@ -81,7 +79,13 @@ class Handler(webapp2.RequestHandler):
   def initialize(self, *a, **kw):
     webapp2.RequestHandler.initialize(self, *a, **kw)
     user_id = self.read_user_cookie() 
-    self.user = user_id and Users.by_id(int(user_id)) # return a and b: if a then return b  
+    if user_id:
+      logging.error('user_id')
+      user_id, last_login = get_user_cache(user_id)
+      self.user = user_id 
+    else:
+      logging.error('no user_id')
+      self.user = user_id and Users.by_id(int(user_id)) # return a and b: if a then return b  
 
     if self.request.url.endswith('.json'):
       self.format = 'json'
@@ -185,8 +189,6 @@ class WikiPage(Handler):
       return
  
     if not wiki:
-#      wiki = Wiki.make_entry(page,0)
-#      wiki.put()
       wiki = wiki_put_and_cache(page, 0)
       self.redirect('/_edit' + page) 
 
@@ -223,8 +225,7 @@ class EditPage(Handler):
       return 
 
     if not wiki:
-      wiki = Wiki.make_entry(page, 0)
-      wiki.put()
+      wiki = wiki_put_and_cache(page, 0)
 
     last_mod = format_datetime(wiki.created)
     self.params['title'] = wiki.title

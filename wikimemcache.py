@@ -18,6 +18,10 @@ def set_cache(key, wiki):
   save_time = datetime.utcnow() 
   memcache.set(key, (wiki, save_time)) 
 
+def set_dual_cache(key_one, key_two, wiki):
+  save_time = datetime.utcnow() 
+  memcache.set_multi({key_one:(wiki, save_time), key_two:(wiki, save_time)})
+
 def get_cache(key):
   w = memcache.get(key)
   if w:
@@ -33,14 +37,18 @@ def wiki_get_and_cache(key, title, version):
   return wiki, save_time
 
 def wiki_put_and_cache(title, version, content=' '):
-  key = db.Key.from_path('Wiki', title+str(version)) 
+  key_one = db.Key.from_path('Wiki', title+str(version)) 
+  key_two = db.Key.from_path('Wiki', title) 
   wiki = Wiki.make_entry(title, version, content)
   wiki.put()
-  set_cache(str(key), wiki)
+  set_dual_cache(str(key_one), str(key_two), wiki)
   return wiki
 
-def wiki_cache(title, version, update=False):
-  key = db.Key.from_path('Wiki', title+str(version)) 
+def wiki_cache(title, version=None, update=False):
+  if version:
+    key = db.Key.from_path('Wiki', title+str(version)) 
+  else:
+    key = db.Key.from_path('Wiki', title)
   wiki, save_time = get_cache(str(key))
   if update == True or wiki == None: 
     wiki, save_time = wiki_get_and_cache(str(key), title, version)
@@ -49,9 +57,12 @@ def wiki_cache(title, version, update=False):
 
 ## All the procedures needed to cache Users queries
 
-def set_user_cache(key, user_id):
+def set_user_cache(key, user):
   last_login = datetime.utcnow()
-  memcache.set(key, (user_id, last_login))
+  memcache.set(key, (user, last_login))
+
+# def user_get_and_cache(key, user):
+# I need to get the user and set the cache
 
 def get_user_cache(key):
   u = memcache.get(key)
