@@ -194,12 +194,10 @@ class WikiPage(Handler):
       self.redirect('/_edit' + page) 
 
     elif wiki:
-      self.params['title'] = wiki.title
-      self.params['content'] = wiki.content
-      date_and_time = wiki.created.strftime('%c')
-      logging.warning(date_and_time)
       last_mod = format_datetime(wiki.created)
       last_mod = make_last_edit_str(last_mod)
+      self.params['title'] = wiki.title
+      self.params['content'] = wiki.content
       self.params['edited'] = last_mod
 
     if not user: ## page header for logged out visitor

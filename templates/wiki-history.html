@@ -19,7 +19,7 @@
 
     {% for h in page_history %}
       <tr>
-				<td>{{h.created.strftime('%c')}}</td>
+				<td class="column-two">{{h.created.strftime('%c')}}</td>
 				<td>{{h.content}}</td>
 				<td><a href="{{h.title}}?v={{h.version}}">view</a></td> 
 				<td><a href="/_edit{{h.title}}?v={{h.version}}">edit</a></td> 
