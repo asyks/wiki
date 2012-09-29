@@ -15,11 +15,11 @@
 		<div class="wiki-title" id="title">{{ title }}</div>
 		<br>
 
-    <table>
+    <table id="history-table">
 
     {% for h in page_history %}
       <tr>
-				<td>{{h.created}}</td>
+				<td>{{h.created.strftime('%c')}}</td>
 				<td>{{h.content}}</td>
 				<td><a href="{{h.title}}?v={{h.version}}">view</a></td> 
 				<td><a href="/_edit{{h.title}}?v={{h.version}}">edit</a></td> 

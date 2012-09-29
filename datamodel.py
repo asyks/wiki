@@ -68,6 +68,7 @@ class Wiki(db.Model):
 
   @classmethod
   def make_entry(cls, title, version, content=' '):
+    time_fmt = '%a %b %y %H:%M:%S %Y'
     entry = cls(parent = wiki_key(),
                 title = title,
                 version = version,  

@@ -15,7 +15,7 @@ from google.appengine.api import memcache
 
 path = os.path.dirname(__file__)
 templates = os.path.join(path, 'templates')
-jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(templates)) 
+jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(templates), autoescape=True) 
 last_page = '/' ## initialize last_page to wiki front
 
 
@@ -46,9 +46,12 @@ class Handler(webapp2.RequestHandler):
   def login(self, user): ## sets the user_id cookie by calling set_user_cookie()
     user_id = str(user.key().id()) 
     self.set_user_cookie(user_id)
-    set_user_cache(user.pw_hash, user)
+    set_user_cache(user_id, user)
 
-  def logout(self):
+  def logout(self, user):
+    if user:
+      user_id = str(user.key().id())
+      memcache.delete(user_id)
     self.response.delete_cookie('user_id')
 
   def get_wiki_page(self, title, version=None):
@@ -59,7 +62,7 @@ class Handler(webapp2.RequestHandler):
     logging.error('self.get_wiki_page - wiki: %s' % wiki)
     return wiki
  
-  params = {} ## params will contain key value pairs used by jinja2 templates to render html
+  params = {} ## params contains key value pairs used by jinja2 templates to render all html
 
   def make_logged_out_header(self, page):
     history_link = '/_history' + page 
@@ -75,17 +78,15 @@ class Handler(webapp2.RequestHandler):
     self.params['history'] = '<a href ="%s">history</a>' % history_link
     self.params['auth'] = user.username + '(<a href="/logout"> logout </a>)' 
     
-  ## currently I'm hitting the database on every page load becaseu of self.user initialization
   def initialize(self, *a, **kw):
     webapp2.RequestHandler.initialize(self, *a, **kw)
-    user_id = self.read_user_cookie() 
-    if user_id:
-      logging.error('user_id')
-      user_id, last_login = get_user_cache(user_id)
-      self.user = user_id 
-    else:
-      logging.error('no user_id')
-      self.user = user_id and Users.by_id(int(user_id)) # return a and b: if a then return b  
+    user_id, self.user = self.read_user_cookie(), None 
+    if user_id: ## user_id is the value of the user_id cookie
+      user, last_login = get_user_cache(str(user_id))
+      if user: ## if user is cached we don't need to query Users Object
+        self.user = user 
+      else: ## if user isn't cached we will need to query Users Object
+        self.user = Users.by_id(int(user_id)) 
 
     if self.request.url.endswith('.json'):
       self.format = 'json'
@@ -122,7 +123,7 @@ class Logout(Handler):
 
   def get(self):
 
-    self.logout() ## removes user cookie  
+    self.logout(self.user) ## removes user cookie  
     self.redirect(last_page)
 
 
@@ -195,6 +196,8 @@ class WikiPage(Handler):
     elif wiki:
       self.params['title'] = wiki.title
       self.params['content'] = wiki.content
+      date_and_time = wiki.created.strftime('%c')
+      logging.warning(date_and_time)
       last_mod = format_datetime(wiki.created)
       last_mod = make_last_edit_str(last_mod)
       self.params['edited'] = last_mod

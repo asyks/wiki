@@ -34,7 +34,7 @@ input[type=text] {
 }
 
 textarea[name=content] {
-  width: 600px;
+  width: 800px;
   height: 400px;
   font-size: 17px;
   font-family: monospace;
@@ -42,6 +42,14 @@ textarea[name=content] {
 
 input[type=submit] {
   font-size: 24px;
+}
+
+table[id=history-table] {
+	width: 800px;
+}
+
+tr:nth-child(odd) {
+	background-color: #E0FFFF;
 }
 
 .main-title {
