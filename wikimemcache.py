@@ -61,9 +61,6 @@ def set_user_cache(key, user):
   last_login = datetime.utcnow()
   memcache.set(key, (user, last_login))
 
-# def user_get_and_cache(key, user):
-# I need to get the user and set the cache
-
 def get_user_cache(key):
   u = memcache.get(key)
   if u:
